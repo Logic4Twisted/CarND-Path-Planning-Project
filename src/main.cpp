@@ -160,6 +160,30 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+vector<double> closest_in_front(vector<vector<double>> sensor_fusion, int lane, double end_path_s) {
+  vector<double> result;
+
+  for (int i = 0; i < sensor_fusion.size(); i++) {
+    double d = sensor_fusion[i][6];
+    if (d < (2+4*lane+2) && d > (2+4*lane-2)) {
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx*vx + vy*vy);
+      double check_car_s = sensor_fusion[i][5];
+
+      check_car_s += ((double)50*0.02*check_speed);
+
+      if ((check_car_s > end_path_s) && (result.size() == 0 || result[1] < check_car_s)) {
+        result.clear();
+        result.push_back(i);
+        result.push_back(check_car_s);
+        result.push_back(check_speed);
+      }
+    }
+  }
+  return result;
+}
+
 int main() {
   uWS::Hub h;
 
@@ -243,6 +267,7 @@ int main() {
 
             std::cout << "prev size = " << prev_size << endl;
             std::cout << "car speed = " << car_speed << endl;
+            std::cout << "look ahead = " << (end_path_s - car_s) << endl;
 
             /*
             for (int i = 0; i < sensor_fusion.size(); i++) {
@@ -255,25 +280,17 @@ int main() {
             }
             */
 
+
             bool too_close = false;
 
-            for (int i = 0; i < sensor_fusion.size(); i++) {
-              double d = sensor_fusion[i][6];
-              if (d < (2+4*lane+2) && d > (2+4*lane-2)) {
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(vx*vx + vy*vy);
-                double check_car_s = sensor_fusion[i][5];
-
-                check_car_s += ((double)prev_size*0.02*check_speed);
-
-                if ((check_car_s > end_path_s) && (check_car_s - end_path_s) < 30) {
-                  too_close = true;
-                  if (lane > 0) {
-                    lane = 0;
-                  }
-                  break;
-                }
+            vector<double> infront = closest_in_front(sensor_fusion, lane, end_path_s);
+            if (infront.size() > 0) {
+              std::cout << "distance to next in front " << (infront[1] - end_path_s) << endl; 
+            }
+            if (infront.size() > 0 && ((infront[1] - end_path_s) < 30)) {
+              too_close = true;
+              if (lane > 0) {
+                lane = 0;
               }
             }
 
@@ -281,10 +298,9 @@ int main() {
               ref_vel -= .224;
             }
             else if (ref_vel <= 49.5) {
-              ref_vel += .224*(50 - prev_size);
+              ref_vel += .224*min(50 - prev_size, 10);
               ref_vel = min(ref_vel, 49.5);
             }
-            std::cout << "reference velocity = " << ref_vel << endl;
 
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
@@ -321,10 +337,10 @@ int main() {
               ptsy.push_back(ref_y);
             }
             
-            
-            vector<double> next_wp0 = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            vector<double> next_wp2 = getXY(car_s+90, (2*4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            double vel_m_per_s = ref_vel/2.24;
+            vector<double> next_wp0 = getXY(car_s+vel_m_per_s*3, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            vector<double> next_wp1 = getXY(car_s+vel_m_per_s*4, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            vector<double> next_wp2 = getXY(car_s+vel_m_per_s*6, (2*4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
             ptsx.push_back(next_wp0[0]);
             ptsx.push_back(next_wp1[0]);
