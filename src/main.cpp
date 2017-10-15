@@ -5,50 +5,18 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <map>
+#include <string>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "spline.h"
+#include "cost_functions.h"
+#include "car_location.h"
+
 
 using namespace std;
 
-struct Trajectory
-{
-  vector<double> s;
-  vector<double> d;
-  vector<double> x;
-  vector<double> y;
-  double start_s;
-  double start_d;
-  double final_s;
-  double final_d;
-};
-
-struct CarLocation
-{
-  double car_x;
-  double car_y;
-  double car_s;
-  double car_d;
-  double car_yaw;
-  double car_speed;
-
-  vector<double> previous_path_x;
-  vector<double> previous_path_y;
-
-  double end_path_s;
-  double end_path_d;
-
-};
-
-struct Target 
-{
-  double s;
-  double d;
-  double time;
-  double v;
-  double lane;
-};
 // for convenience
 using json = nlohmann::json;
 
@@ -221,12 +189,19 @@ vector<double> closest_in_front(vector<vector<double>> sensor_fusion, int lane, 
   return result;
 }
 
+
+
 Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y) {
   Trajectory result;
+  if (target.lane < 0 || target.lane > 2) {
+    result.final_d = target.lane*4+2;
+    return result;
+  }
   int prev_size = current.previous_path_x.size();
   vector<double> ptsx, ptsy;
   double ref_x = current.car_x;
   double ref_y = current.car_y;
+  cout << "yaw = " << current.car_yaw << endl;
   double ref_yaw = deg2rad(current.car_yaw);
 
   if (prev_size < 2) {
@@ -255,7 +230,7 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
     ptsy.push_back(ref_y);
   }
   
-  double vel_m_per_s = target.v/2.24;
+  double vel_m_per_s = max(1.0, target.v/2.24);
   vector<double> next_wp0 = getXY(current.car_s+vel_m_per_s*3, (2+4*target.lane), maps_s, maps_x, maps_y);
   vector<double> next_wp1 = getXY(current.car_s+vel_m_per_s*4, (2+4*target.lane), maps_s, maps_x, maps_y);
   vector<double> next_wp2 = getXY(current.car_s+vel_m_per_s*6, (2*4*target.lane), maps_s, maps_x, maps_y);
@@ -277,6 +252,9 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   }
 
   tk::spline s;
+  for (int i = 0; i < ptsx.size(); i++) {
+    cout << ptsx[i] << ", " << ptsy[i] << endl;
+  }
 
   s.set_points(ptsx, ptsy);
   for (int i = 0; i < current.previous_path_x.size(); i++) {
@@ -319,7 +297,18 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   result.final_s = result.s[result.s.size()-1];
   result.start_d = result.d[0];
   result.final_d = result.d[result.d.size()-1];
+  result.final_v = target.v;
+  result.lane = target.lane;
   return result;
+}
+
+bool pairCompare( pair<string,double> i, pair<string, double> j) {
+  return i.second < j.second;
+}
+
+string minCostState(map<string, double> costs) {
+  pair<string, double> min = *min_element(costs.begin(), costs.end(), pairCompare );
+  return min.first;
 }
 
 int main() {
@@ -396,6 +385,8 @@ int main() {
           	double end_path_s = j[1]["end_path_s"];
           	double end_path_d = j[1]["end_path_d"];
 
+            std::cout << "-------------------------------" << endl;
+
             CarLocation currentLocation;
             currentLocation.car_x = car_x;
             currentLocation.car_y = car_y;
@@ -436,6 +427,7 @@ int main() {
             */
 
 
+            /*
             bool too_close = false;
 
             vector<double> infront = closest_in_front(sensor_fusion, lane, end_path_s);
@@ -456,9 +448,10 @@ int main() {
               ref_vel += .224*min(50 - prev_size, 10);
               ref_vel = min(ref_vel, 49.5);
             }
+            */
 
-          	vector<double> next_x_vals;
-          	vector<double> next_y_vals;
+            map<string, double> costs;
+            map<string, Trajectory> map;
 
             Target target;
             target.v = ref_vel;
@@ -467,8 +460,36 @@ int main() {
             target.s = 0.0;
             target.d = 0.0;
 
-            Trajectory trajectory = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            cout << "KL" << endl;
+            Trajectory trajectory0 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            map["KL"] = trajectory0;
 
+            cout << "KL+" << endl;
+            target.v = ref_vel + .224;
+            Trajectory trajectory1 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            map["KL+"] = trajectory1;
+
+            cout << "CL-L" << endl;
+            target.lane = lane - 1;
+            Trajectory trajectory2 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            map["CL-L"] = trajectory2;
+
+            cout << "CL-R" << endl;
+            target.lane = lane + 1;
+            Trajectory trajectory3 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            map["CL-R"] = trajectory3;
+
+            
+            for (auto const& x : map) {
+              costs[x.first] = x.second.cost(sensor_fusion);
+            }
+
+            string state = minCostState(costs);
+            cout << "Min cost State = " << state << endl;
+            Trajectory trajectory = map[state];
+            
+            vector<double> next_x_vals;
+            vector<double> next_y_vals;
             for (int i = 0; i < trajectory.x.size(); i++) {
               next_x_vals.push_back(trajectory.x[i]);
               next_y_vals.push_back(trajectory.y[i]);
