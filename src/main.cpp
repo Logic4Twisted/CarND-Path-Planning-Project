@@ -20,11 +20,6 @@ using namespace std;
 // for convenience
 using json = nlohmann::json;
 
-// For converting back and forth between radians and degrees.
-constexpr double pi() { return M_PI; }
-double deg2rad(double x) { return x * pi() / 180; }
-double rad2deg(double x) { return x * 180 / pi(); }
-
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -40,157 +35,6 @@ string hasData(string s) {
   return "";
 }
 
-double distance(double x1, double y1, double x2, double y2)
-{
-	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
-}
-int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-
-	double closestLen = 100000; //large number
-	int closestWaypoint = 0;
-
-	for(int i = 0; i < maps_x.size(); i++)
-	{
-		double map_x = maps_x[i];
-		double map_y = maps_y[i];
-		double dist = distance(x,y,map_x,map_y);
-		if(dist < closestLen)
-		{
-			closestLen = dist;
-			closestWaypoint = i;
-		}
-
-	}
-
-	return closestWaypoint;
-
-}
-
-int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-
-	int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
-
-	double map_x = maps_x[closestWaypoint];
-	double map_y = maps_y[closestWaypoint];
-
-	double heading = atan2( (map_y-y),(map_x-x) );
-
-	double angle = abs(theta-heading);
-
-	if(angle > pi()/4)
-	{
-		closestWaypoint++;
-	}
-
-	return closestWaypoint;
-
-}
-
-// Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-vector<double> getFrenet(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-	int next_wp = NextWaypoint(x,y, theta, maps_x,maps_y);
-
-	int prev_wp;
-	prev_wp = next_wp-1;
-	if(next_wp == 0)
-	{
-		prev_wp  = maps_x.size()-1;
-	}
-
-	double n_x = maps_x[next_wp]-maps_x[prev_wp];
-	double n_y = maps_y[next_wp]-maps_y[prev_wp];
-	double x_x = x - maps_x[prev_wp];
-	double x_y = y - maps_y[prev_wp];
-
-	// find the projection of x onto n
-	double proj_norm = (x_x*n_x+x_y*n_y)/(n_x*n_x+n_y*n_y);
-	double proj_x = proj_norm*n_x;
-	double proj_y = proj_norm*n_y;
-
-	double frenet_d = distance(x_x,x_y,proj_x,proj_y);
-
-	//see if d value is positive or negative by comparing it to a center point
-
-	double center_x = 1000-maps_x[prev_wp];
-	double center_y = 2000-maps_y[prev_wp];
-	double centerToPos = distance(center_x,center_y,x_x,x_y);
-	double centerToRef = distance(center_x,center_y,proj_x,proj_y);
-
-	if(centerToPos <= centerToRef)
-	{
-		frenet_d *= -1;
-	}
-
-	// calculate s value
-	double frenet_s = 0;
-	for(int i = 0; i < prev_wp; i++)
-	{
-		frenet_s += distance(maps_x[i],maps_y[i],maps_x[i+1],maps_y[i+1]);
-	}
-
-	frenet_s += distance(0,0,proj_x,proj_y);
-
-	return {frenet_s,frenet_d};
-
-}
-
-// Transform from Frenet s,d coordinates to Cartesian x,y
-vector<double> getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-	int prev_wp = -1;
-
-	while(s > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1) ))
-	{
-		prev_wp++;
-	}
-
-	int wp2 = (prev_wp+1)%maps_x.size();
-
-	double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
-	// the x,y,s along the segment
-	double seg_s = (s-maps_s[prev_wp]);
-
-	double seg_x = maps_x[prev_wp]+seg_s*cos(heading);
-	double seg_y = maps_y[prev_wp]+seg_s*sin(heading);
-
-	double perp_heading = heading-pi()/2;
-
-	double x = seg_x + d*cos(perp_heading);
-	double y = seg_y + d*sin(perp_heading);
-
-	return {x,y};
-
-}
-
-vector<double> closest_in_front(vector<vector<double>> sensor_fusion, int lane, double end_path_s) {
-  vector<double> result;
-
-  for (int i = 0; i < sensor_fusion.size(); i++) {
-    double d = sensor_fusion[i][6];
-    if (d < (2+4*lane+2) && d > (2+4*lane-2)) {
-      double vx = sensor_fusion[i][3];
-      double vy = sensor_fusion[i][4];
-      double check_speed = sqrt(vx*vx + vy*vy);
-      double check_car_s = sensor_fusion[i][5];
-
-      check_car_s += ((double)50*0.02*check_speed);
-
-      if ((check_car_s > end_path_s) && (result.size() == 0 || result[1] > check_car_s)) {
-        result.clear();
-        result.push_back(i);
-        result.push_back(check_car_s);
-        result.push_back(check_speed);
-      }
-    }
-  }
-  return result;
-}
-
-
-
 Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y) {
   Trajectory result;
   if (target.lane < 0 || target.lane > 2) {
@@ -201,7 +45,7 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   vector<double> ptsx, ptsy;
   double ref_x = current.car_x;
   double ref_y = current.car_y;
-  cout << "yaw = " << current.car_yaw << endl;
+  //cout << "yaw = " << current.car_yaw << endl;
   double ref_yaw = deg2rad(current.car_yaw);
 
   if (prev_size < 2) {
@@ -229,8 +73,10 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
     ptsy.push_back(ref_y_prev);
     ptsy.push_back(ref_y);
   }
+  //cout << "ref_yaw = " << (ref_yaw * 180.0 / M_PI) << endl;
   
   double vel_m_per_s = max(1.0, target.v/2.24);
+  //cout << "> " << current.car_s << " + " << vel_m_per_s << " * X" << endl; 
   vector<double> next_wp0 = getXY(current.car_s+vel_m_per_s*3, (2+4*target.lane), maps_s, maps_x, maps_y);
   vector<double> next_wp1 = getXY(current.car_s+vel_m_per_s*4, (2+4*target.lane), maps_s, maps_x, maps_y);
   vector<double> next_wp2 = getXY(current.car_s+vel_m_per_s*6, (2*4*target.lane), maps_s, maps_x, maps_y);
@@ -243,6 +89,12 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   ptsy.push_back(next_wp1[1]);
   ptsy.push_back(next_wp2[1]);
 
+  /*
+  for (int i = 0; i < ptsx.size(); i++) {
+    cout << ptsx[i] << ", " << ptsy[i] << endl;
+  }
+  */
+
   for (int i = 0; i < ptsx.size(); i++) {
     double shift_x = ptsx[i] - ref_x;
     double shift_y = ptsy[i] - ref_y;
@@ -252,9 +104,11 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   }
 
   tk::spline s;
+  /*
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << ", " << ptsy[i] << endl;
   }
+  */
 
   s.set_points(ptsx, ptsy);
   for (int i = 0; i < current.previous_path_x.size(); i++) {
@@ -298,6 +152,7 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   result.start_d = result.d[0];
   result.final_d = result.d[result.d.size()-1];
   result.final_v = target.v;
+  result.lane_change = current.car_lane - target.lane;
   result.lane = target.lane;
   return result;
 }
@@ -311,15 +166,16 @@ string minCostState(map<string, double> costs) {
   return min.first;
 }
 
+vector<double> map_waypoints_x;
+vector<double> map_waypoints_y;
+vector<double> map_waypoints_s;
+vector<double> map_waypoints_dx;
+vector<double> map_waypoints_dy;
+
 int main() {
   uWS::Hub h;
 
   // Load up map values for waypoint's x,y,s and d normalized normal vectors
-  vector<double> map_waypoints_x;
-  vector<double> map_waypoints_y;
-  vector<double> map_waypoints_s;
-  vector<double> map_waypoints_dx;
-  vector<double> map_waypoints_dy;
 
   // Waypoint map to read from
   string map_file_ = "../data/highway_map.csv";
@@ -351,7 +207,7 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&lane, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&lane, &ref_vel](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -394,6 +250,7 @@ int main() {
             currentLocation.car_d = car_d;
             currentLocation.car_yaw = car_yaw;
             currentLocation.car_speed = car_speed;
+            currentLocation.car_lane = lane;
             for (int i = 0; i < previous_path_x.size(); i++) {
               currentLocation.previous_path_x.push_back(previous_path_x[i]);
             }
@@ -414,6 +271,9 @@ int main() {
             std::cout << "prev size = " << prev_size << endl;
             std::cout << "car speed = " << car_speed << endl;
             std::cout << "look ahead = " << (end_path_s - car_s) << endl;
+
+            std::cout << "ref_vel = " << ref_vel << endl;
+            std::cout << "lane = " << lane << endl; 
 
             /*
             for (int i = 0; i < sensor_fusion.size(); i++) {
@@ -450,43 +310,69 @@ int main() {
             }
             */
 
+            map<string, Target> targets;
             map<string, double> costs;
             map<string, Trajectory> map;
+            
 
-            Target target;
-            target.v = ref_vel;
-            target.lane = lane;
-            target.time = 0.0;
-            target.s = 0.0;
-            target.d = 0.0;
+            Target target1;
+            target1.v = ref_vel;
+            target1.lane = lane;
+            target1.time = 0.0;
+            target1.s = 0.0;
+            target1.d = 0.0;
 
             cout << "KL" << endl;
-            Trajectory trajectory0 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            Trajectory trajectory0 = create_trajectory(currentLocation, target1, map_waypoints_s, map_waypoints_x, map_waypoints_y);
             map["KL"] = trajectory0;
+            targets["KL"] = target1;
 
-            cout << "KL+" << endl;
-            target.v = ref_vel + .224;
-            Trajectory trajectory1 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            map["KL+"] = trajectory1;
 
             cout << "CL-L" << endl;
-            target.lane = lane - 1;
-            Trajectory trajectory2 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            Target target2;
+            target2.v = ref_vel;
+            target2.lane = lane - 1;
+            Trajectory trajectory2 = create_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y);
             map["CL-L"] = trajectory2;
+            targets["CL-L"] = target2;
+
 
             cout << "CL-R" << endl;
-            target.lane = lane + 1;
-            Trajectory trajectory3 = create_trajectory(currentLocation, target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            Target target3;
+            target3.v = ref_vel;
+            target3.lane = lane + 1;
+            Trajectory trajectory3 = create_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
             map["CL-R"] = trajectory3;
+            targets["CL-R"] = target3;
+
+
+            cout << "KL+" << endl;
+            Target target4;
+            target4.v = ref_vel + .224;
+            target4.lane = lane;
+            Trajectory trajectory4 = create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            map["KL+"] = trajectory4;
+            targets["KL+"] = target4;
+
+
+            cout << "KL++" << endl;
+            Target target5;
+            target5.v = ref_vel + .224*3;
+            target5.lane = lane;
+            Trajectory trajectory5 = create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            map["KL++"] = trajectory5;
+            targets["KL++"] = target5;
 
             
             for (auto const& x : map) {
               costs[x.first] = x.second.cost(sensor_fusion);
+              cout << x.first << " -> " << costs[x.first] << endl;
             }
 
             string state = minCostState(costs);
             cout << "Min cost State = " << state << endl;
             Trajectory trajectory = map[state];
+            ref_vel = targets[state].v;
             
             vector<double> next_x_vals;
             vector<double> next_y_vals;
