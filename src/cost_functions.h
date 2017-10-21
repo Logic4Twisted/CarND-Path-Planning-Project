@@ -11,7 +11,11 @@ const static double DANGER = 1.0E5;
 const static double REACH_GOAL = 1.0E5;
 const static double COMFORT = 1.0E4;
 const static double EFFICIENCY = 1.0E3;
-const static double LANE_CHANGE = 1.0E2;
+const static double LANE_CHANGE = 1.0E1;
+
+const static double SPEED_LIMIT = 50.0; // mi/h
+
+const static double SPEED_LIMIT_BUFFER = 1.0; // mi/h
 
 using namespace std;
 
@@ -35,6 +39,7 @@ class Trajectory
   std::vector<double> closest_in_front(std::vector<std::vector<double>> sensor_fusion, double end_path_d, double end_path_s) const;
   double collision_cost(vector<vector<double>> sensor_fusion) const;
   double inefficiency_cost() const;
+  double overspeeding_cost() const;
 
 };
 

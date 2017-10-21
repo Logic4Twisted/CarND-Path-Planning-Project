@@ -8,6 +8,7 @@ double Trajectory::cost (vector<vector<double>> sensor_fusion) const {
   result += collision_cost(sensor_fusion);
   result += inefficiency_cost();
   result += comfort_cost();
+  result += overspeeding_cost();
   return result;
 }
 
@@ -40,11 +41,13 @@ vector<double> Trajectory::closest_in_front(vector<vector<double>> sensor_fusion
 }
 
 double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
-  double result = 0.0;
+  double result = 1.0;
   if (lane < 0 or lane >= 3) {
-    result += 10;
+    result += 1;
   }
+  double min_distance = 1000.0;
   for (int i = 0; i < sensor_fusion.size(); i++) {
+    double id = sensor_fusion[i][0];
     double x_ = sensor_fusion[i][1];
     double y_ = sensor_fusion[i][2];
     double d_ = sensor_fusion[i][6];
@@ -52,7 +55,6 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     double vx = sensor_fusion[i][3];
     double vy = sensor_fusion[i][4];
     double v = sqrt(vx*vx + vy*vy);
-    double min_distance = 1000.0;
     /*
     for (int j = 0; j < x.size(); j++) {
       double current_x = x_ + vx*j*0.02;
@@ -61,15 +63,21 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     }
     */
     for (int j = 0; j < 50; j++) {
-      if (fabs(d_ - final_d) < 2.0 && fabs(s_ + v*(i+1)*0.02 - s[i]) <= 5) {
-        result += 1.0;
-        break;
+      if (fabs(d[j] - d_) < 2.0) {
+        double dist = distance(s[j], d[j], (s_ + v*(j+1)*0.02), d_);
+        min_distance = min(min_distance, dist);
       }
     }
   }
+  cout << "distance = " << min_distance << endl;
+  result *= exp(-min_distance);
   return result * COLLISION;
 }
 
 double Trajectory::inefficiency_cost() const {
-  return fabs(final_v - 50.0)*EFFICIENCY;
+  return fabs(final_v - (SPEED_LIMIT-SPEED_LIMIT_BUFFER)/2.24)*EFFICIENCY;
+}
+
+double Trajectory::overspeeding_cost() const {
+  return sgn(final_v - SPEED_LIMIT)*DANGER;
 }

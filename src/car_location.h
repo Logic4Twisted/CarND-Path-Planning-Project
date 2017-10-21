@@ -12,6 +12,7 @@ struct CarLocation {
   double car_yaw;
   double car_speed;
   int car_lane;
+  double car_acceleration;
 
   std::vector<double> previous_path_x;
   std::vector<double> previous_path_y;
@@ -26,12 +27,14 @@ struct Target {
   double time;
   double v;
   double lane;
+  double a;
 };
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 inline double deg2rad(double x) { return x * pi() / 180; }
 inline double rad2deg(double x) { return x * 180 / pi(); }
+inline double sgn(double x) { if (x > 0.0) return 1.0; return 0.0;}
 
 double distance(double x1, double y1, double x2, double y2);
 
