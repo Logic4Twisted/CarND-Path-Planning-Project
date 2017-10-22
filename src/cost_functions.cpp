@@ -62,7 +62,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
       vector<double> sd = getFrenet(current_x, )
     }
     */
-    for (int j = 0; j < 50; j++) {
+    for (int j = 0; j < s.size(); j++) {
       if (fabs(d[j] - d_) < 2.0) {
         double dist = distance(s[j], d[j], (s_ + v*(j+1)*0.02), d_);
         min_distance = min(min_distance, dist);
@@ -70,7 +70,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     }
   }
   cout << "distance = " << min_distance << endl;
-  result *= exp(-min_distance);
+  result *= exp(-min_distance/5.0);
   return result * COLLISION;
 }
 

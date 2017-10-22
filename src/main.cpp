@@ -99,6 +99,23 @@ Trajectory create_CL_trajectory(CarLocation current, Target target, const vector
     return result;
   }
   double T = 3.0; // 3 seconds to change lane
+  int prev_size = current.previous_path_x.size();
+
+  vector<double> ptsx, ptsy;
+  double ref_x = current.car_x;
+  double ref_y = current.car_y;
+
+  double ref_yaw = deg2rad(current.car_yaw);
+
+  double prev_car_x = ref_x - cos(ref_yaw);
+  double prev_car_y = ref_y - sin(ref_yaw);
+  
+
+  ptsx.push_back(prev_car_x);
+  ptsx.push_back(ref_x);
+
+  ptsy.push_back(prev_car_y);
+  ptsy.push_back(ref_y);
 
   vector<double> s_start = {current.car_s, current.car_speed, current.car_acceleration};
   vector<double> s_final = {target.s, target.v, current.car_acceleration};
@@ -108,7 +125,70 @@ Trajectory create_CL_trajectory(CarLocation current, Target target, const vector
   vector<double> d_final = {4.0*target.lane+2, 0.0, 0.0};
   vector<double> d_coeff = jmt(d_start, d_final, T);
 
-  for (int i = 1; i <= 50; i++) {
+  //cout << "> " << current.car_s << " + " << vel_m_per_s << " * X" << endl; 
+  for (double t = 1.0; t <= 3.1; t += 1.0) {
+    vector<double> next_wp = getXY(eval(s_coeff, t), eval(d_coeff, t), maps_s, maps_x, maps_y);
+    ptsx.push_back(next_wp[0]);
+    ptsy.push_back(next_wp[1]);
+  }
+
+  /*
+  cout << "car_yaw = " << current.car_yaw <<  " degrees"<< endl;
+  for (int i = 0; i < ptsx.size(); i++) {
+    cout << ptsx[i] << " " << ptsy[i] << endl;
+  }
+  cout << endl;
+  */
+
+  for (int i = 0; i < ptsx.size(); i++) {
+    double shift_x = ptsx[i] - ref_x;
+    double shift_y = ptsy[i] - ref_y;
+
+    ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
+    ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
+  }
+
+  tk::spline s;
+  /*
+  for (int i = 0; i < ptsx.size(); i++) {
+    cout << ptsx[i] << " " << ptsy[i] << endl;
+  }
+  cout << endl;
+  */
+  
+  s.set_points(ptsx, ptsy);
+
+  double target_x = current.car_speed*3.0;
+  double target_y = s(target_x);
+  double target_dist = sqrt(target_x*target_x + target_y*target_y);
+
+  double x_add_on = 0;
+
+  for (int i = 1; i <= 150; i++) {
+    double N = (target_dist/(.02*current.car_speed));
+    double x_point = x_add_on + (target_x)/N;
+    double y_point = s(x_point);
+
+    x_add_on = x_point;
+
+    double x_ref = x_point;
+    double y_ref = y_point;
+
+    x_point = (x_ref * cos(ref_yaw) - y_ref*sin(ref_yaw));
+    y_point = (x_ref * sin(ref_yaw) + y_ref*cos(ref_yaw));
+
+    x_point += ref_x;
+    y_point += ref_y;
+
+    result.x.push_back(x_point);
+    result.y.push_back(y_point);
+    vector<double> sd = getFrenet(x_point, y_point, current.car_yaw, maps_x, maps_y);
+    result.s.push_back(sd[0]);
+    result.d.push_back(sd[1]);
+  }
+
+  /*
+  for (int i = 1; i <= T*50; i++) {
     double s = eval(s_coeff, i*0.02);
     double d = eval(d_coeff, i*0.02);
     result.s.push_back(s);
@@ -119,7 +199,7 @@ Trajectory create_CL_trajectory(CarLocation current, Target target, const vector
   }
   cout << eval(diff(s_coeff), 0.0) << ", " << eval(diff(s_coeff), T) << endl;
   cout << s_start[1] << ", " << s_final[1] << endl;
-
+  */
 
   result.start_s = result.s[0];
   result.final_s = result.s[result.s.size()-1];
@@ -152,8 +232,8 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   double ref_yaw = deg2rad(current.car_yaw);
 
   if (prev_size < 2) {
-    double prev_car_x = current.car_x - cos(current.car_yaw);
-    double prev_car_y = current.car_y - sin(current.car_yaw);
+    double prev_car_x = current.car_x - cos(ref_yaw);
+    double prev_car_y = current.car_y - sin(ref_yaw);
 
     ptsx.push_back(prev_car_x);
     ptsx.push_back(current.car_x);
@@ -196,6 +276,7 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << ", " << ptsy[i] << endl;
   }
+  cout << endl;
   */
 
   for (int i = 0; i < ptsx.size(); i++) {
@@ -207,6 +288,7 @@ Trajectory create_trajectory(CarLocation current, Target target, const vector<do
   }
 
   tk::spline s;
+  
   /*
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << ", " << ptsy[i] << endl;
@@ -284,6 +366,7 @@ vector<double> map_waypoints_dy;
 
 double previous_car_speed;
 double ref_vel;
+string state;
 
 chrono::high_resolution_clock::time_point timespamp;
 
@@ -322,6 +405,7 @@ int main() {
   int lane = 1;
   previous_car_speed = 0.0;
   ref_vel = 0.0;
+  state = "CS";
 
   timespamp = chrono::high_resolution_clock::now();
 
@@ -395,93 +479,118 @@ int main() {
             double max_accel = 5.0; // m/s^2
 
             std::cout << "prev size = " << prev_size << endl;
-            std::cout << "car position = " << car_s << endl;
-            std::cout << "car speed = " << car_speed << " m/s" << endl;
+            std::cout << "car position = (" << car_s <<  ", " << car_d << ") xy = (" << car_x << ", " << car_y << ")" << endl;
+            std::cout << "car speed = " << car_speed << " m/s = " << (car_speed*2.24) << " mi/h" << endl;
             std::cout << "car accel = " << currentLocation.car_acceleration << " m/s2" << endl;
+            std::cout << "car angle = " << currentLocation.car_yaw << " degrees " << endl;
             std::cout << "look ahead = " << (end_path_s - car_s) << " m" << endl;
+            std::cout << "state = " << state << endl;
 
             std::cout << "lane = " << lane << endl; 
+            bool in_lane = (fabs(4.0*lane + 2.0 - car_d) < 1.0);
+
+            if (in_lane && (state == "CL-L" || state == "CL-R")) {
+              state = "CS";
+            }
 
             map<string, Target> targets;
             map<string, double> costs;
             map<string, Trajectory> map;
             
-
-            Target target1;
-            target1.v = ref_vel;
-            target1.lane = lane;
-            target1.time = 0.0;
-            target1.s = 0.0;
-            target1.d = 0.0;
-
-            cout << "CS" << endl;
-            Trajectory trajectory0 = create_trajectory(currentLocation, target1, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            map["CS"] = trajectory0;
-            targets["CS"] = target1;
-
-
-            if (lane > 0) {
-              cout << "CL-L" << endl;
-              Target target2;
-              target2.v = car_speed;
-              target2.lane = lane - 1;
-              target2.s = car_s + car_speed*3.0;
-              target2.a = currentLocation.car_acceleration;
-              Trajectory trajectory2 = create_CL_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-              map["CL-L"] = trajectory2;
-              targets["CL-L"] = target2;
-            }
-            
-
-            if (lane < 2) {
-              cout << "CL-R" << endl;
-              Target target3;
-              target3.v = car_speed;
-              target3.lane = lane + 1;
-              target3.s = car_s + car_speed*3.0;
-              target3.a = currentLocation.car_acceleration;
-              Trajectory trajectory3 = create_CL_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-              map["CL-R"] = trajectory3;
-              targets["CL-R"] = target3;
-            }
-
-
-            cout << "KL+" << endl;
-            Target target4;
-            target4.v = ref_vel + 0.1;
-            target4.lane = lane;
-            Trajectory trajectory4 = create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            map["KL+"] = trajectory4;
-            targets["KL+"] = target4;
-
-
-            cout << "KL++" << endl;
-            Target target5;
-            target5.v = ref_vel + 0.1*3;
-            target5.lane = lane;
-            Trajectory trajectory5 = create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            map["KL++"] = trajectory5;
-            targets["KL++"] = target5;
-
-            
-            for (auto const& x : map) {
-              cout << x.first << "(";
-              costs[x.first] = x.second.cost(sensor_fusion);
-              cout << ") :: " << costs[x.first] << endl;
-            }
-
-            string state = minCostState(costs);
-            cout << "Min cost State = " << state << endl;
-            Trajectory trajectory = map[state];
-            previous_car_speed = car_speed;
-            ref_vel = trajectory.final_v;
-            lane = targets[state].lane;
-            
             vector<double> next_x_vals;
             vector<double> next_y_vals;
-            for (int i = 0; i < trajectory.x.size(); i++) {
-              next_x_vals.push_back(trajectory.x[i]);
-              next_y_vals.push_back(trajectory.y[i]);
+
+            if (state == "CL-L" || state == "CL-R") {
+              if (in_lane) {
+                state = "CS";
+              }
+              for (int i = 0; i < previous_path_x.size(); i++) {
+                next_x_vals.push_back(previous_path_x[i]);
+                next_y_vals.push_back(previous_path_y[i]);
+              }
+
+            }
+            else {
+              Target target1;
+              target1.v = ref_vel;
+              target1.lane = lane;
+              target1.time = 0.0;
+              target1.s = 0.0;
+              target1.d = 0.0;
+
+              cout << "CS" << endl;
+              Trajectory trajectory0 = create_trajectory(currentLocation, target1, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              map["CS"] = trajectory0;
+              targets["CS"] = target1;
+
+              if (lane > 0 && prev_size > 1 && car_speed > 1.0) {
+                cout << "CL-L" << endl;
+                Target target2;
+                target2.v = car_speed;
+                target2.lane = lane - 1;
+                target2.s = car_s + car_speed*3.0;
+                target2.a = currentLocation.car_acceleration;
+                Trajectory trajectory2 = create_CL_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                map["CL-L"] = trajectory2;
+                targets["CL-L"] = target2;
+              }
+
+
+              if (lane < 2 && prev_size > 1 && car_speed > 1.0) {
+                cout << "CL-R" << endl;
+                Target target3;
+                target3.v = car_speed;
+                target3.lane = lane + 1;
+                target3.s = car_s + car_speed*3.0;
+                target3.a = currentLocation.car_acceleration;
+                Trajectory trajectory3 = create_CL_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                map["CL-R"] = trajectory3;
+                targets["CL-R"] = target3;
+              }
+
+              cout << "KL+" << endl;
+              Target target4;
+              target4.v = ref_vel + 0.1;
+              target4.lane = lane;
+              Trajectory trajectory4 = create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              map["KL+"] = trajectory4;
+              targets["KL+"] = target4;
+
+              cout << "KL++" << endl;
+              Target target5;
+              target5.v = ref_vel + 0.1*3;
+              target5.lane = lane;
+              Trajectory trajectory5 = create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              map["KL++"] = trajectory5;
+              targets["KL++"] = target5;
+
+              if (ref_vel > 0.2) {
+                cout << "KL-" << endl;
+                Target target4;
+                target4.v = ref_vel - 0.1;
+                target4.lane = lane;
+                Trajectory trajectory4 = create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                map["KL-"] = trajectory4;
+                targets["KL-"] = target4;
+              }
+
+              for (auto const& x : map) {
+                cout << x.first << "(";
+                costs[x.first] = x.second.cost(sensor_fusion);
+                cout << ") :: " << costs[x.first] << endl;
+              }
+
+              state = minCostState(costs);
+              cout << "Min cost State = " << state << endl;
+              Trajectory trajectory = map[state];
+              previous_car_speed = car_speed;
+              ref_vel = trajectory.final_v;
+              lane = targets[state].lane;
+
+              for (int i = 0; i < trajectory.x.size(); i++) {
+                next_x_vals.push_back(trajectory.x[i]);
+                next_y_vals.push_back(trajectory.y[i]);
+              }
             }
 
             json msgJson;
