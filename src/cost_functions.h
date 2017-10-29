@@ -4,7 +4,7 @@
 #include <math.h>
 #include <iostream>
 #include <vector>
-#include "car_location.h"
+#include "helper_functions.h"
 
 const static double COLLISION = 1.0E6;
 const static double DANGER = 1.0E5;
