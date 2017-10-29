@@ -17,6 +17,11 @@ const static double SPEED_LIMIT = 50.0; // mi/h
 
 const static double SPEED_LIMIT_BUFFER = 1.0; // mi/h
 
+const static double DELTA_T = 0.1; // seconds
+
+const static double MAX_JERK = 50.0;
+const static double MAX_ACCELERATION = 10.0;
+
 using namespace std;
 
 class Trajectory
@@ -31,6 +36,11 @@ class Trajectory
   double final_s;
   double final_d;
   double final_v;
+
+  double max_jerk_s;
+  double max_acceleration_s;
+  double max_velocity_s;
+  
   int lane_change;
   int lane;
 
@@ -40,7 +50,7 @@ class Trajectory
   double collision_cost(vector<vector<double>> sensor_fusion) const;
   double inefficiency_cost() const;
   double overspeeding_cost() const;
-  static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
+  static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T = 3.0);
   static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
 };
 

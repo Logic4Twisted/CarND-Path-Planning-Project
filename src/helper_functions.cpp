@@ -12,6 +12,14 @@ double distance(double x1, double y1, double x2, double y2)
 	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
 }
 
+double miph_to_kmph(double miph) {
+	return miph*1.60934;
+}
+
+double miph_to_mps(double miph) {
+	return miph_to_kmph(miph)/3.6;
+}
+
 int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vector<double> &maps_y)
 {
 
@@ -132,24 +140,23 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
-vector<double> closest_in_front(vector<vector<double>> sensor_fusion, int lane, double end_path_s) {
+vector<double> closest_in_front(vector<vector<double>> sensor_fusion, int lane, double s, double range) {
   vector<double> result;
-
+  double curr_min = range;
   for (int i = 0; i < sensor_fusion.size(); i++) {
     double d = sensor_fusion[i][6];
-    if (d < (2+4*lane+2) && d > (2+4*lane-2)) {
+    if (d > 4.0*lane && d < 4.0*lane+4.0) {
       double vx = sensor_fusion[i][3];
       double vy = sensor_fusion[i][4];
-      double check_speed = sqrt(vx*vx + vy*vy);
+      double v = sqrt(vx*vx + vy*vy);
       double check_car_s = sensor_fusion[i][5];
-
-      check_car_s += ((double)50*0.02*check_speed);
-
-      if ((check_car_s > end_path_s) && (result.size() == 0 || result[1] > check_car_s)) {
+      double dist = fmod(check_car_s - s + TRACK_LEN, TRACK_LEN);
+      if (dist < curr_min) {
+        curr_min = dist;
         result.clear();
         result.push_back(i);
         result.push_back(check_car_s);
-        result.push_back(check_speed);
+        result.push_back(v);
       }
     }
   }

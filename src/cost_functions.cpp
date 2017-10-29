@@ -22,7 +22,11 @@ double Trajectory::cost (vector<vector<double>> sensor_fusion) const {
 }
 
 double Trajectory::comfort_cost() const{
-  return abs(lane_change)*LANE_CHANGE;
+  double result = 0.0;
+  result += abs(lane_change)*LANE_CHANGE;
+  result += (exp(max_acceleration_s/MAX_ACCELERATION) - 1.0)*COMFORT;
+  result += (exp(max_jerk_s/MAX_JERK) - 1.0)*COMFORT;
+  return result;
 }
 
 vector<double> Trajectory::closest_in_front(vector<vector<double>> sensor_fusion, double end_path_d, double end_path_s) const {
@@ -73,7 +77,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
       vector<double> sd = getFrenet(current_x, )
     }
     */
-    cout << "vehicle : " << id << " " << s_ << " " << d_ << " " << v;
+    cout << "vehicle : " << id << " " << (s_ - start_s) << " " << (d_ - start_d) << " " << v;
     double curr_distance = 1000.0;
     int help_j = -1;
     for (int j = 0; j < s.size(); j++) {
@@ -91,25 +95,24 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     min_distance = min(min_distance, curr_distance);
   }
   cout << "distance = " << min_distance << endl;
-  result *= exp(-min_distance/5.0);
+  result *= exp(-min_distance);
   return result * COLLISION;
 }
 
 double Trajectory::inefficiency_cost() const {
-  return fabs(final_v - (SPEED_LIMIT-SPEED_LIMIT_BUFFER)/2.24)*EFFICIENCY;
+  return fabs(max(final_v, max_velocity_s) - miph_to_mps(SPEED_LIMIT-SPEED_LIMIT_BUFFER))*EFFICIENCY;
 }
 
 double Trajectory::overspeeding_cost() const {
-  return sgn(final_v - SPEED_LIMIT)*DANGER;
+  return sgn(max(final_v, max_velocity_s) - miph_to_mps(SPEED_LIMIT))*DANGER;
 }
 
-Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y) {
+Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T) {
   Trajectory result;
   if (target.lane < 0 || target.lane > 2) {
     result.final_d = target.lane*4+2;
     return result;
   }
-  double T = 3.0; // 3 seconds to change lane
   int prev_size = current.previous_path_x.size();
 
   vector<double> ptsx, ptsy;
@@ -129,11 +132,23 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   ptsy.push_back(ref_y);
 
   vector<double> s_start = {current.car_s, current.car_speed, current.car_acceleration};
-  vector<double> s_final = {target.s, target.v, current.car_acceleration};
+  vector<double> s_final = {target.s, target.v, target.a};
   vector<double> s_coeff = jmt(s_start, s_final, T);
   
-  cout << "s 0 < " << eval(s_coeff, 0.0) << ", " << eval(dif(s_coeff), 0.0) << ", " << eval(dif(dif(s_coeff)), 0.0) << endl;
-  cout << "s T > " << eval(s_coeff, T) << ", " << eval(dif(s_coeff), T) << ", " << eval(dif(dif(s_coeff)), T) << endl;
+  vector<double> s_v = dif(s_coeff);
+  vector<double> s_a = dif(s_v);
+  vector<double> s_j = dif(s_a);
+  cout << "s 0 < " << eval(s_coeff, 0.0) << ", " << eval(s_v, 0.0) << ", " << eval(s_a, 0.0) << endl;
+  cout << "s T > " << eval(s_coeff, T) << ", " << eval(s_v, T) << ", " << eval(s_a, T) << endl;
+
+  result.max_acceleration_s = 0.0;
+  result.max_jerk_s = 0.0;
+  result.max_velocity_s = 0.0;
+  for (double t = 0.0; t <= T; t += DELTA_T) {
+    result.max_velocity_s = max(result.max_velocity_s, fabs(eval(s_v, t)));
+    result.max_acceleration_s = max(result.max_acceleration_s, fabs(eval(s_a, t)));
+    result.max_jerk_s = max(result.max_jerk_s, fabs(eval(s_j, t)));
+  }
 
   for (int i = 0; i < s_coeff.size(); i++) {
     cout << s_coeff[i] << " ";
@@ -181,7 +196,7 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
 
   s.set_points(ptsx, ptsy);
 
-  double target_x = current.car_speed*T + current.car_acceleration*pow(T, 2.0)/2;
+  double target_x = 50.0;
   double target_y = s(target_x);
   double target_dist = sqrt(target_x*target_x + target_y*target_y);
 
@@ -268,11 +283,15 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
   }
   cout << "ref_yaw = " << (ref_yaw * 180.0 / M_PI) << endl;
   
+  vector<double> ref_sd = getFrenet(ref_x, ref_y, current.car_yaw, maps_x, maps_y);
+  double ref_s = ref_sd[0];
+  double ref_d = ref_sd[1];
+  
   double vel_m_per_s = max(1.0, target.v);
-  cout << "> " << current.car_s << " + " << vel_m_per_s << " * X" << endl; 
-  vector<double> next_wp0 = getXY(current.car_s+vel_m_per_s*3, (2+4*target.lane), maps_s, maps_x, maps_y);
-  vector<double> next_wp1 = getXY(current.car_s+vel_m_per_s*4, (2+4*target.lane), maps_s, maps_x, maps_y);
-  vector<double> next_wp2 = getXY(current.car_s+vel_m_per_s*6, (2*4*target.lane), maps_s, maps_x, maps_y);
+  cout << "> " << ref_s << " + " << vel_m_per_s << " * X" << endl; 
+  vector<double> next_wp0 = getXY(ref_s + vel_m_per_s*2.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y);
+  vector<double> next_wp1 = getXY(ref_s + vel_m_per_s*3.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y);
+  vector<double> next_wp2 = getXY(ref_s + vel_m_per_s*5.0, (2.0*4.0*target.lane), maps_s, maps_x, maps_y);
 
   ptsx.push_back(next_wp0[0]);
   ptsx.push_back(next_wp1[0]);

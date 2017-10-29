@@ -30,6 +30,11 @@ struct Target {
   double a;
 };
 
+const double TRACK_LEN = 6945.554;
+
+double miph_to_kmph(double miph);
+double miph_to_mps(double miph);
+
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 inline double deg2rad(double x) { return x * pi() / 180; }
@@ -47,7 +52,7 @@ std::vector<double> getFrenet(double x, double y, double theta, const std::vecto
 
 std::vector<double> getXY(double s, double d, const std::vector<double> &maps_s, const std::vector<double> &maps_x, const std::vector<double> &maps_y);
 
-std::vector<double> closest_in_front(std::vector<std::vector<double>> sensor_fusion, int lane, double end_path_s);
+std::vector<double> closest_in_front(std::vector<std::vector<double>> sensor_fusion, int lane, double s, double range);
 
 std::vector<double> jmt(std::vector<double> start, std::vector<double> final, double T);
 

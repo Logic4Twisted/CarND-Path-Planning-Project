@@ -213,11 +213,22 @@ int main() {
 
               if (lane > 0 && prev_size > 1 && car_speed > 5.0 && car_speed + currentLocation.car_acceleration*3.0 > 0) {
                 cout << "CL-L" << endl;
+                vector<double> closest = closest_in_front(sensor_fusion, lane-1, car_s, currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2)/2.0);
                 Target target2;
-                target2.v = min(49.0, car_speed + currentLocation.car_acceleration*3.0);
-                target2.lane = lane - 1;
-                target2.s = car_s + currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2)/2.0;
-                target2.a = currentLocation.car_acceleration;
+                if (closest.size() == 0) {
+                  target2.v = min(49.0, car_speed + currentLocation.car_acceleration*3.0);
+                  target2.lane = lane - 1;
+                  target2.s = car_s + currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2)/2.0;
+                  target2.a = currentLocation.car_acceleration;
+                }
+                else {
+                  cout << "closest : " << closest[0] << endl;
+                  target2.v = closest[2];
+                  target2.lane = lane - 1;
+                  target2.s = car_s + closest[2]*3.0 - 3.0;
+                  target2.a = 0.0;
+                }
+                
                 Trajectory trajectory2 = Trajectory::create_CL_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y);
                 map["CL-L"] = trajectory2;
                 targets["CL-L"] = target2;
@@ -226,15 +237,45 @@ int main() {
 
               if (lane < 2 && prev_size > 1 && car_speed > 5.0 && car_speed + currentLocation.car_acceleration*3.0 > 0) {
                 cout << "CL-R" << endl;
+                vector<double> closest = closest_in_front(sensor_fusion, lane+1, car_s, currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2)/2.0);
                 Target target3;
-                target3.v = min(49.0, car_speed + currentLocation.car_acceleration*3.0);
-                target3.lane = lane + 1;
-                target3.s = car_s + currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2.0)/2.0;
-                target3.a = currentLocation.car_acceleration;
+                if (closest.size() == 0) {
+                  target3.v = min(49.0, car_speed + currentLocation.car_acceleration*3.0);
+                  target3.lane = lane + 1;
+                  target3.s = car_s + currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2.0)/2.0;
+                  target3.a = currentLocation.car_acceleration;
+                }
+                else {
+                  cout << "closest : " << closest[0] << endl;
+                  target3.v = closest[2];
+                  target3.lane = lane + 1;
+                  target3.s = car_s + closest[2]*3.0 - 3.0;
+                  target3.a = 0.0;
+                }
                 Trajectory trajectory3 = Trajectory::create_CL_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y);
                 map["CL-R"] = trajectory3;
                 targets["CL-R"] = target3;
               }
+
+              
+              vector<double> closest = closest_in_front(sensor_fusion, lane, car_s, 30.0);
+              if (closest.size() != 0) {
+                cout << "KL" << endl;
+                Target target8;
+                target8.v = closest[2];
+                target8.lane = lane;
+                target8.s = closest[1] + closest[2]*3.0 - 5.0;
+                target8.a = 0.0;
+                double dt = 3.0;
+                if (closest[2] < car_speed) {
+                  dt = (closest[1] - car_s)/(car_speed - closest[2]);
+                  cout << "T = " << dt << endl;
+                }
+                Trajectory trajectory8 = Trajectory::create_CL_trajectory(currentLocation, target8, map_waypoints_s, map_waypoints_x, map_waypoints_y, dt);
+                map["KL"] = trajectory8;
+                targets["KL"] = target8;
+              }
+
 
               cout << "KL+" << endl;
               Target target4;
@@ -254,22 +295,22 @@ int main() {
 
               if (ref_vel > 0.2) {
                 cout << "KL-" << endl;
-                Target target4;
-                target4.v = ref_vel - 0.1;
-                target4.lane = lane;
-                Trajectory trajectory4 = Trajectory::create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                map["KL-"] = trajectory4;
-                targets["KL-"] = target4;
+                Target target6;
+                target6.v = ref_vel - 0.1;
+                target6.lane = lane;
+                Trajectory trajectory6 = Trajectory::create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                map["KL-"] = trajectory6;
+                targets["KL-"] = target6;
               }
 
               if(ref_vel > 0.5) {
                 cout << "KL--" << endl;
-                Target target5;
-                target5.v = ref_vel - 0.1*2;
-                target5.lane = lane;
-                Trajectory trajectory5 = Trajectory::create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                map["KL--"] = trajectory5;
-                targets["KL--"] = target5;
+                Target target7;
+                target7.v = ref_vel - 0.1*2;
+                target7.lane = lane;
+                Trajectory trajectory7 = Trajectory::create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                map["KL--"] = trajectory7;
+                targets["KL--"] = target7;
               }
 
               for (auto const& x : map) {
