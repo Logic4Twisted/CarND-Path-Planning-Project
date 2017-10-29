@@ -49,4 +49,10 @@ std::vector<double> getXY(double s, double d, const std::vector<double> &maps_s,
 
 std::vector<double> closest_in_front(std::vector<std::vector<double>> sensor_fusion, int lane, double end_path_s);
 
+std::vector<double> jmt(std::vector<double> start, std::vector<double> final, double T);
+
+double eval(std::vector<double> coeff, double x);
+
+std::vector<double> dif(std::vector<double> coeff);
+
 #endif /* CAR_LOCATION_H_ */

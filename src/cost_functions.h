@@ -40,7 +40,8 @@ class Trajectory
   double collision_cost(vector<vector<double>> sensor_fusion) const;
   double inefficiency_cost() const;
   double overspeeding_cost() const;
-
+  static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
+  static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
 };
 
 #endif /* TRAJECTORY_H_ */
