@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <vector>
+#include <deque>
 
 struct CarLocation {
   double car_x;
@@ -59,5 +60,7 @@ std::vector<double> jmt(std::vector<double> start, std::vector<double> final, do
 double eval(std::vector<double> coeff, double x);
 
 std::vector<double> dif(std::vector<double> coeff);
+
+double average(std::deque<double> dq);
 
 #endif /* CAR_LOCATION_H_ */

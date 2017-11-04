@@ -15,7 +15,7 @@ const static double LANE_CHANGE = 1.0E1;
 
 const static double SPEED_LIMIT = 50.0; // mi/h
 
-const static double SPEED_LIMIT_BUFFER = 1.0; // mi/h
+const static double SPEED_LIMIT_BUFFER = 3.0; // mi/h
 
 const static double DELTA_T = 0.1; // seconds
 
@@ -40,18 +40,27 @@ class Trajectory
   double max_jerk_s;
   double max_acceleration_s;
   double max_velocity_s;
+
+  double max_jerk_d;
+  double max_acceleration_d;
+  double max_velocity_d;
   
   int lane_change;
   int lane;
 
   double cost(std::vector<std::vector<double>> sensor_fusion) const;
   double comfort_cost() const;
-  std::vector<double> closest_in_front(std::vector<std::vector<double>> sensor_fusion, double end_path_d, double end_path_s) const;
   double collision_cost(vector<vector<double>> sensor_fusion) const;
   double inefficiency_cost() const;
   double overspeeding_cost() const;
   static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T = 3.0);
   static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
+  void printToStdout() const;
+};
+
+class ImpossibleTrajectory: public Trajectory {
+  double cost(std::vector<std::vector<double>> sensor_fusion) const;
+  void printToStdout() const;
 };
 
 #endif /* TRAJECTORY_H_ */

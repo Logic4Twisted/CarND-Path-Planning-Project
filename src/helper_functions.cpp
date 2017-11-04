@@ -20,6 +20,14 @@ double miph_to_mps(double miph) {
 	return miph_to_kmph(miph)/3.6;
 }
 
+double average(deque<double> dq) {
+	double sum = 0.0;
+	for (int i = 0; i < dq.size(); i++) {
+		sum += dq[i];
+	}
+	return sum/dq.size();
+}
+
 int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vector<double> &maps_y)
 {
 
@@ -55,7 +63,7 @@ int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x,
 
 	double angle = fabs(theta-heading);
 
-	if(angle > pi()/4)
+	if(angle > pi()/4 && angle < 7*pi()/4)
 	{
 		closestWaypoint++;
 	}
@@ -151,7 +159,7 @@ vector<double> closest_in_front(vector<vector<double>> sensor_fusion, int lane, 
       double v = sqrt(vx*vx + vy*vy);
       double check_car_s = sensor_fusion[i][5];
       double dist = fmod(check_car_s - s + TRACK_LEN, TRACK_LEN);
-      if (dist < curr_min) {
+      if (dist > 0 && dist < curr_min) {
         curr_min = dist;
         result.clear();
         result.push_back(i);
