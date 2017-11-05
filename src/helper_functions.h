@@ -63,4 +63,6 @@ std::vector<double> dif(std::vector<double> coeff);
 
 double average(std::deque<double> dq);
 
+double logistic(double x);
+
 #endif /* CAR_LOCATION_H_ */

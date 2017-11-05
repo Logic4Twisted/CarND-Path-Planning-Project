@@ -20,6 +20,10 @@ double miph_to_mps(double miph) {
 	return miph_to_kmph(miph)/3.6;
 }
 
+double logistic(double x) {
+	return 2.0/(1.0 + exp(0.0 - x)) - 1.0;
+}
+
 double average(deque<double> dq) {
 	double sum = 0.0;
 	for (int i = 0; i < dq.size(); i++) {

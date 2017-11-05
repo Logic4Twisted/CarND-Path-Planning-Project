@@ -1,8 +1,10 @@
 #include "cost_functions.h"
+#include "helper_functions.h"
 #include "spline.h"
 #include <vector>
 #include <cfloat>
 #include <algorithm>
+#include <math.h>
 
 using namespace std;
 
@@ -15,22 +17,36 @@ double Trajectory::cost (vector<vector<double>> sensor_fusion) const {
   double result = 0.0;
   double cost = collision_cost(sensor_fusion);
   cout << "COLLISION = " << cost << endl;
-  result += cost;
+  result += cost*COLLISION;
   cost = inefficiency_cost();
   cout << "INEFFICIENCY = " << cost << endl;
-  result += cost;
-  cost = comfort_cost();
-  cout << "COMFORT = " << cost << endl;
-  result += cost;
+  result += cost*EFFICIENCY;
+  cost = acceleration_cost();
+  cout << "ACCELERATION GOAL = " << cost << endl;
+  result += cost*PROJECT_GOAL;
+  cost = jerk_cost();
+  cout << "JERK GOAL = " << cost << endl;
+  result += cost*PROJECT_GOAL;
   cost = overspeeding_cost();
   cout << "OVERSPEEDING = " << cost << endl;
-  result += cost;
+  result += cost*PROJECT_GOAL;
   return result;
+}
+
+double Trajectory::acceleration_cost() const{
+  double acc = sqrt(pow(max_acceleration_s, 2.0) + pow(max_acceleration_d, 2.0));
+  if (acc >= MAX_ACCELERATION) return 1.0;
+  return 0.0;
+}
+
+double Trajectory::jerk_cost() const {
+  double jerk = sqrt(pow(max_jerk_s, 2.0) + pow(max_jerk_d, 2.0));
+  if (jerk >= MAX_JERK) return 1.0;
+  return 0.0;
 }
 
 double Trajectory::comfort_cost() const{
   double result = 0.0;
-  result += abs(lane_change)*LANE_CHANGE;
   
   result += (exp(max_acceleration_s/(0.9*MAX_ACCELERATION)) - 1.0)*COMFORT;
   result += (exp(max_jerk_s/(0.9*MAX_JERK)) - 1.0)*COMFORT;
@@ -64,7 +80,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
       vector<double> sd = getFrenet(current_x, )
     }
     */
-    cout << "vehicle : " << id << " " << (start_s - s_) << " " << (start_d - d_) << " " << v;
+    //cout << "vehicle : " << id << " " << (start_s - s_) << " " << (start_d - d_) << " " << v;
     double curr_distance = 1000.0;
     int help_j = -1;
     for (int j = 0; j < min(50ul, s.size()); j++) {
@@ -79,22 +95,28 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
         curr_distance = min(curr_distance, dist);
       }
     }
-    cout << " distance to this vehicle = " << curr_distance  << "(" << help_j << ")" << endl;
+    //cout << " distance to this vehicle = " << curr_distance  << "(" << help_j << ")" << endl;
     min_distance = min(min_distance, curr_distance);
   }
   cout << "distance = " << min_distance << endl;
-  result *= exp(-min_distance/5.0);
-  return result * COLLISION;
+  if (min_distance < MIN_DISTANCE) {
+    return 1.0;
+  }
+  if (min_distance < RECOMMENDED_DISTANCE) {
+    return 0.3;
+  }
+  return 0.0;
 }
 
 double Trajectory::inefficiency_cost() const {
-  return fabs(max(final_v, max_velocity_s) - miph_to_mps(SPEED_LIMIT-SPEED_LIMIT_BUFFER))*EFFICIENCY;
+  double target = miph_to_mps(SPEED_LIMIT-SPEED_LIMIT_BUFFER);
+  return fabs(target - avg_speed)/target;
 }
 
 double Trajectory::overspeeding_cost() const {
-  double extra = max(final_v, max_velocity_s) - miph_to_mps(SPEED_LIMIT-SPEED_LIMIT_BUFFER);
-  if (extra < 0.0) extra = 0.0;
-  return extra*DANGER;
+  double extra = max(max_speed, max_velocity_s) - miph_to_mps(SPEED_LIMIT - SPEED_LIMIT_BUFFER);
+  if (extra <= 0.0) return 0.0;
+  return 1.0;
 }
 
 Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T) {
@@ -127,8 +149,9 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   vector<double> s_v = dif(s_coeff);
   vector<double> s_a = dif(s_v);
   vector<double> s_j = dif(s_a);
-  cout << "s 0 < " << eval(s_coeff, 0.0) << ", " << eval(s_v, 0.0) << ", " << eval(s_a, 0.0) << endl;
-  cout << "s T > " << eval(s_coeff, T) << ", " << eval(s_v, T) << ", " << eval(s_a, T) << endl;
+  cout << "T = " << T << endl;
+  cout << "s_start = [" << eval(s_coeff, 0.0) << ", " << eval(s_v, 0.0) << ", " << eval(s_a, 0.0) << ']' << endl;
+  cout << "s_end = [" << eval(s_coeff, T) << ", " << eval(s_v, T) << ", " << eval(s_a, T) << ']' << endl;
 
   result.max_acceleration_s = 0.0;
   result.max_jerk_s = 0.0;
@@ -140,10 +163,12 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
     result.max_jerk_s = max(result.max_jerk_s, fabs(eval(s_j, t)));
   }
 
+  /*
   for (int i = 0; i < s_coeff.size(); i++) {
     cout << s_coeff[i] << " ";
   }
   cout << endl;
+  */
 
   vector<double> d_start = {current.car_d, 0.0, 0.0};
   vector<double> d_final = {4.0*target.lane+2.0, 0.0, 0.0};
@@ -152,8 +177,8 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   vector<double> d_v = dif(d_coeff);
   vector<double> d_a = dif(d_v);
   vector<double> d_j = dif(d_a);
-  cout << "d 0 < " << eval(d_coeff, 0.0) << ", " << eval(d_v, 0.0) << ", " << eval(d_a, 0.0) << endl;
-  cout << "d T > " << eval(d_coeff, T) << ", " << eval(d_v, T) << ", " << eval(d_a, T) << endl;
+  cout << "d_start = [" << eval(d_coeff, 0.0) << ", " << eval(d_v, 0.0) << ", " << eval(d_a, 0.0) << ']' << endl;
+  cout << "d_end = [" << eval(d_coeff, T) << ", " << eval(d_v, T) << ", " << eval(d_a, T) << ']' << endl;
 
   result.max_acceleration_d = 0.0;
   result.max_jerk_d = 0.0;
@@ -167,20 +192,22 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
 
   //cout << "> " << current.car_s << " + " << vel_m_per_s << " * X" << endl; 
   
-  for (double t = 0.3; t <= T + 0.1; t += 0.3) {
+  for (double t = 0.5; t <= T + 0.1; t += 0.5) {
     double s_val = eval(s_coeff, t);
     double d_val = eval(d_coeff, t);
-    cout << ">> " << s_val << " <o> " << d_val <<  " <<"<< endl;
+    //cout << ">> " << s_val << " <o> " << d_val <<  " <<"<< endl;
     vector<double> next_wp = getXY(s_val, d_val, maps_s, maps_x, maps_y);
     ptsx.push_back(next_wp[0]);
     ptsy.push_back(next_wp[1]);
   }
 
-  cout << "car_yaw = " << current.car_yaw <<  " degrees"<< endl;
+  //cout << "car_yaw = " << current.car_yaw <<  " degrees"<< endl;
+  /*
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << " " << ptsy[i] << endl;
   }
   cout << endl;
+  */
 
   for (int i = 0; i < ptsx.size(); i++) {
     double shift_x = ptsx[i] - ref_x;
@@ -190,19 +217,21 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
     ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
   }
 
-  tk::spline s;
-
+  
+  /*
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << " " << ptsy[i] << endl;
   }
   cout << endl;
+  */
 
   for (int i = 0; i < ptsx.size() - 1; i++) {
-    if (ptsx[i] > ptsx[i+1]) {
+    if (ptsx[i] >= ptsx[i+1]) {
       return ImpossibleTrajectory();
     }
   }
 
+  tk::spline s;
   s.set_points(ptsx, ptsy);
 
   double trajectory_len = 3.0; // in seconds
@@ -275,8 +304,9 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   result.lane_change = current.car_lane - target.lane;
   result.lane = target.lane;
 
+  result.calcAvgSpeed();
+  
   return result;
-
 }
 
 Trajectory Trajectory::create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y) {
@@ -317,14 +347,14 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
     ptsy.push_back(ref_y_prev);
     ptsy.push_back(ref_y);
   }
-  cout << "ref_yaw = " << (ref_yaw * 180.0 / M_PI) << endl;
+  //cout << "ref_yaw = " << (ref_yaw * 180.0 / M_PI) << endl;
   
   vector<double> ref_sd = getFrenet(ref_x, ref_y, current.car_yaw, maps_x, maps_y);
   double ref_s = ref_sd[0];
   double ref_d = ref_sd[1];
 
   double vel_m_per_s = max(1.0, target.v);
-  cout << "> " << ref_s << " + " << vel_m_per_s << " * X" << endl; 
+  //cout << "> " << ref_s << " + " << vel_m_per_s << " * X" << endl; 
   vector<double> next_wp0 = getXY(ref_s + vel_m_per_s*2.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y);
   vector<double> next_wp1 = getXY(ref_s + vel_m_per_s*3.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y);
   vector<double> next_wp2 = getXY(ref_s + vel_m_per_s*5.0, (2.0*4.0*target.lane), maps_s, maps_x, maps_y);
@@ -337,10 +367,12 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
   ptsy.push_back(next_wp1[1]);
   ptsy.push_back(next_wp2[1]);
 
+  /*
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << ", " << ptsy[i] << endl;
   }
   cout << endl;
+  */
 
   for (int i = 0; i < ptsx.size(); i++) {
     double shift_x = ptsx[i] - ref_x;
@@ -350,19 +382,21 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
     ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
   }
 
-  tk::spline s;
   
-
+  
+  /*
   for (int i = 0; i < ptsx.size(); i++) {
     cout << ptsx[i] << ", " << ptsy[i] << endl;
   }
+  */
 
   for (int i = 0; i < ptsx.size() - 1; i++) {
-    if (ptsx[i] > ptsx[i+1]) {
+    if (ptsx[i] >= ptsx[i+1]) {
       return ImpossibleTrajectory();
     }
   }
 
+  tk::spline s;
   s.set_points(ptsx, ptsy);
   for (int i = 0; i < current.previous_path_x.size(); i++) {
     result.x.push_back(current.previous_path_x[i]);
@@ -412,24 +446,46 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
   result.lane_change = current.car_lane - target.lane;
   result.lane = target.lane;
   
+  result.calcAvgSpeed();
+
+  result.calcMaxSpeed();
 
   return result;
 }
 
+void Trajectory::calcMaxSpeed() {
+  double temp_max = 0.0;
+  for (int i = 1; i < x.size(); i++) {
+    temp_max = max(temp_max, distance(x[i], y[i], x[i-1], y[i-1]));
+  }
+  max_speed = temp_max/0.02;
+}
+
+void Trajectory::calcAvgSpeed() {
+  double sum = 0.0;
+  for (int i = 1; i < x.size(); i++) {
+    sum += distance(x[i], y[i], x[i-1], y[i-1]);
+  }
+  sum /= (x.size()-1);
+  avg_speed = sum/0.02;
+}
+
 void Trajectory::printToStdout() const {
-  cout << "final_d = " << final_d << endl;
-  cout << "final_s = " << final_s << endl;
-  cout << "final_v = " << final_v << endl;
-  cout << "lane_change = " << lane_change << endl;
-  cout << "lane = " << lane << endl;
-  cout << "s: " << endl;
-  cout << "  max_velocity = " << max_velocity_s << endl;
-  cout << "  max_acceleration = " << max_acceleration_s << endl;
-  cout << "  max_jerk = " << max_jerk_s << endl;
-  cout << "d: " << endl;
-  cout << "  max_velocity = " << max_velocity_d << endl;
-  cout << "  max_acceleration = " << max_acceleration_d << endl;
-  cout << "  max_jerk = " << max_jerk_d << endl;
+  cout << "-------------------------------"  << endl;
+  cout << "| final_d = " << final_d << endl;
+  cout << "| final_s = " << final_s << endl;
+  cout << "| final_v = " << final_v << endl;
+  cout << "| lane = " << lane << " lane_change = " << lane_change << endl;
+  cout << "| avg speed = " << avg_speed <<  " max speed = " << max_speed << endl;
+  cout << "|- s: " << endl;
+  cout << "|   max_velocity = " << max_velocity_s << endl;
+  cout << "|   max_acceleration = " << max_acceleration_s << endl;
+  cout << "|   max_jerk = " << max_jerk_s << endl;
+  cout << "|- d: " << endl;
+  cout << "|   max_velocity = " << max_velocity_d << endl;
+  cout << "|   max_acceleration = " << max_acceleration_d << endl;
+  cout << "|   max_jerk = " << max_jerk_d << endl;
+  cout << "-------------------------------"  << endl;
 }
 
 double ImpossibleTrajectory::cost(std::vector<std::vector<double>> sensor_fusion) const {

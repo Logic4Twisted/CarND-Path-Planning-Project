@@ -7,20 +7,23 @@
 #include "helper_functions.h"
 
 const static double COLLISION = 1.0E6;
-const static double DANGER = 1.0E5;
+const static double PROJECT_GOAL = 1.0E6;
+const static double TRAFIC_LAWS = 1.0E5;
 const static double REACH_GOAL = 1.0E5;
 const static double COMFORT = 1.0E4;
-const static double EFFICIENCY = 1.0E3;
+const static double EFFICIENCY = 1.0E2;
 const static double LANE_CHANGE = 1.0E1;
 
 const static double SPEED_LIMIT = 50.0; // mi/h
-
 const static double SPEED_LIMIT_BUFFER = 3.0; // mi/h
 
 const static double DELTA_T = 0.1; // seconds
 
 const static double MAX_JERK = 50.0;
 const static double MAX_ACCELERATION = 10.0;
+
+const static double MIN_DISTANCE = 7.0; // meters
+const static double RECOMMENDED_DISTANCE = 10.0; // meters
 
 using namespace std;
 
@@ -44,6 +47,9 @@ class Trajectory
   double max_jerk_d;
   double max_acceleration_d;
   double max_velocity_d;
+
+  double avg_speed;
+  double max_speed;
   
   int lane_change;
   int lane;
@@ -56,6 +62,11 @@ class Trajectory
   static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T = 3.0);
   static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
   void printToStdout() const;
+private:
+  void calcAvgSpeed();
+  void calcMaxSpeed();
+  double acceleration_cost() const;
+  double jerk_cost() const;
 };
 
 class ImpossibleTrajectory: public Trajectory {
