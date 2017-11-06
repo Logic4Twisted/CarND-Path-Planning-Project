@@ -23,7 +23,7 @@ const static double MAX_JERK = 50.0;
 const static double MAX_ACCELERATION = 10.0;
 
 const static double MIN_DISTANCE = 7.0; // meters
-const static double RECOMMENDED_DISTANCE = 10.0; // meters
+const static double RECOMMENDED_DISTANCE = 15.0; // meters
 
 using namespace std;
 
@@ -59,8 +59,8 @@ class Trajectory
   double collision_cost(vector<vector<double>> sensor_fusion) const;
   double inefficiency_cost() const;
   double overspeeding_cost() const;
-  static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T = 3.0);
-  static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
+  static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy, double T);
+  static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy);
   void printToStdout() const;
 private:
   void calcAvgSpeed();

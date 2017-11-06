@@ -51,7 +51,7 @@ int NextWaypoint(double x, double y, double theta, const std::vector<double> &ma
 // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
 std::vector<double> getFrenet(double x, double y, double theta, const std::vector<double> &maps_x, const std::vector<double> &maps_y);
 
-std::vector<double> getXY(double s, double d, const std::vector<double> &maps_s, const std::vector<double> &maps_x, const std::vector<double> &maps_y);
+std::vector<double> getXY(double s, double d, const std::vector<double> &maps_s, const std::vector<double> &maps_x, const std::vector<double> &maps_y, const std::vector<double> &maps_dx, const std::vector<double> &maps_dy);
 
 std::vector<double> closest_in_front(std::vector<std::vector<double>> sensor_fusion, int lane, double s, double range);
 

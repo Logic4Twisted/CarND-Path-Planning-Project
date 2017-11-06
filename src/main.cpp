@@ -63,7 +63,7 @@ deque<double> jerks;
 
 int target_lane;
 
-bool can_change_lane = true;
+bool can_change_lane = false;
 
 chrono::high_resolution_clock::time_point timespamp;
 
@@ -82,6 +82,8 @@ int main() {
   double max_s = 6945.554;
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
+
+  std::cout << std::setprecision(3) << std::fixed;
 
   string line;
   while (getline(in_map_, line)) {
@@ -102,6 +104,8 @@ int main() {
   	map_waypoints_dx.push_back(d_x);
   	map_waypoints_dy.push_back(d_y);
   }
+
+  cout << "Map size = " << map_waypoints_x.size() << endl;
 
   target_lane = 1;
   previous_car_speed = 0.0;
@@ -186,6 +190,8 @@ int main() {
 
             double max_accel = 5.0; // m/s^2
 
+            bool in_lane = (fabs(4.0*target_lane + 2.0 - car_d) < 1.0);
+
             std::cout << "prev size = " << prev_size << ", dt = " << dt.count() << " ms " << endl ;
             std::cout << "position = (" << car_s <<  ", " << car_d << ") xy = (" << car_x << ", " << car_y << ")" << endl;
             std::cout << "speed = " << car_speed << " m/s = " << (car_speed*2.24) << " mi/h" << endl;
@@ -195,9 +201,9 @@ int main() {
             std::cout << "car angle = " << currentLocation.car_yaw << " degrees " << endl;
             std::cout << "look ahead = " << (end_path_s - car_s) << " m" << endl;
             std::cout << "state = " << state << endl;
-            std::cout << "current lane = " << currentLocation.car_lane << ", target lane = " << target_lane << endl; 
+            std::cout << "current lane = " << currentLocation.car_lane << ", target lane = " << target_lane << (in_lane?" IN LANE ":" CHANGING LANE ") << endl; 
             
-            bool in_lane = (fabs(4.0*target_lane + 2.0 - car_d) < 1.0);
+            
             previous_car_speed = car_speed;
             previous_car_acceleration = diff_v;
 
@@ -252,14 +258,14 @@ int main() {
 
               
               cout << "CS" << endl;
-              Trajectory trajectory0 = Trajectory::create_trajectory(currentLocation, target1, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              Trajectory trajectory0 = Trajectory::create_trajectory(currentLocation, target1, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
               map["CS"] = trajectory0;
               targets["CS"] = target1;
               trajectory0.printToStdout();
 
 
               
-              if (closest_in_this_lane.size() != 0) {
+              if (false && closest_in_this_lane.size() != 0) {
                 cout << "FL" << endl;
                 cout << "closest: id = " << closest_in_this_lane[0] << " s = " << closest_in_this_lane[1] << " v = " << closest_in_this_lane[2] << endl;
                 Target target8;
@@ -277,7 +283,7 @@ int main() {
                 target8.s = closest_in_this_lane[1] + closest_in_this_lane[2]*dt - 10.0;
                 target8.a = 0.0;
 
-                Trajectory trajectory8 = Trajectory::create_CL_trajectory(currentLocation, target8, map_waypoints_s, map_waypoints_x, map_waypoints_y, dt);
+                Trajectory trajectory8 = Trajectory::create_CL_trajectory(currentLocation, target8, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy, dt);
                 map["FL"] = trajectory8;
                 targets["FL"] = target8;
                 trajectory8.printToStdout();
@@ -291,30 +297,30 @@ int main() {
               // CL-L
               if (can_change_lane && target_lane > 0 && prev_size > 1 && car_speed > 5.0 && distance_to_closest_in_front > 7.0) {
                 cout << "CL-L" << endl;
-                vector<double> closest = closest_in_front(sensor_fusion, target_lane-1, car_s, 30.0);
+                vector<double> closest_in_ll = closest_in_front(sensor_fusion, target_lane-1, car_s, 30.0);
                 Target target2;
                 target2.lane = target_lane - 1;
                 double dt = 3.0;
-                if (closest.size() == 0) {
+                if (closest_in_ll.size() == 0) {
                   target2.v = min(49.0, car_speed + currentLocation.car_acceleration*dt);
                   target2.s = car_s + currentLocation.car_speed*dt + currentLocation.car_acceleration*pow(dt, 2)/2.0;
                   target2.a = currentLocation.car_acceleration;
                 }
                 else {
-                  cout << "closest: id = " << closest[0] << " s = " << closest[1] << " v = " << closest[2] << endl;
-                  target2.v = closest[2];
+                  cout << "closest: id = " << closest_in_ll[0] << " s = " << closest_in_ll[1] << " v = " << closest_in_ll[2] << endl;
+                  target2.v = closest_in_ll[2];
                   dt = 5.0;
-                  if (closest[2] < car_speed) {
-                    dt = (closest[1] - car_s)/(car_speed - closest[2])*2.0;
+                  if (closest_in_ll[2] < car_speed) {
+                    dt = (closest_in_ll[1] - car_s)/(car_speed - closest_in_ll[2])*2.0;
                     dt = min(10.0, dt);
                     dt = max(4.0, dt);
                   }
                   cout << "dT = " << dt << endl;
-                  target2.s = closest[1] + closest[2]*dt - 10.0;
+                  target2.s = closest_in_ll[1] + closest_in_ll[2]*dt - 10.0;
                   target2.a = 0.0;
                 }
                 
-                Trajectory trajectory2 = Trajectory::create_CL_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y, dt);
+                Trajectory trajectory2 = Trajectory::create_CL_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy, dt);
                 map["CL-L"] = trajectory2;
                 targets["CL-L"] = target2;
                 trajectory2.printToStdout();
@@ -323,29 +329,29 @@ int main() {
               // CL-R
               if (can_change_lane && target_lane < 2 && prev_size > 1 && car_speed > 5.0 && distance_to_closest_in_front > 7.0) {
                 cout << "CL-R" << endl;
-                vector<double> closest = closest_in_front(sensor_fusion, target_lane+1, car_s, 30.0);
+                vector<double> closest_in_rl = closest_in_front(sensor_fusion, target_lane+1, car_s, 30.0);
                 Target target3;
                 target3.lane = target_lane + 1;
                 double dt = 3.0;
-                if (closest.size() == 0) {
+                if (closest_in_rl.size() == 0) {
                   target3.v = min(49.0, car_speed + currentLocation.car_acceleration*3.0);
                   target3.s = car_s + currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2.0)/2.0;
                   target3.a = currentLocation.car_acceleration;
                 }
                 else {
-                  cout << "closest: id = " << closest[0] << " s = " << closest[1] << " v = " << closest[2] << endl;
-                  target3.v = closest[2];
+                  cout << "closest: id = " << closest_in_rl[0] << " s = " << closest_in_rl[1] << " v = " << closest_in_rl[2] << endl;
+                  target3.v = closest_in_rl[2];
                   dt = 5.0;
-                  if (closest[2] < car_speed) {
-                    dt = (closest[1] - car_s)/(car_speed - closest[2])*2.0;
+                  if (closest_in_rl[2] < car_speed) {
+                    dt = (closest_in_rl[1] - car_s)/(car_speed - closest_in_rl[2])*2.0;
                     dt = min(10.0, dt);
                     dt = max(4.0, dt);
                   }
                   cout << "dT = " << dt << endl;
-                  target3.s = closest[1] + closest[2]*dt - 10.0;
+                  target3.s = closest_in_rl[1] + closest_in_rl[2]*dt - 10.0;
                   target3.a = 0.0;
                 }
-                Trajectory trajectory3 = Trajectory::create_CL_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y, dt);
+                Trajectory trajectory3 = Trajectory::create_CL_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy, dt);
                 map["CL-R"] = trajectory3;
                 targets["CL-R"] = target3;
                 trajectory3.printToStdout();
@@ -356,7 +362,7 @@ int main() {
               Target target4;
               target4.v = ref_vel + 0.1;
               target4.lane = target_lane;
-              Trajectory trajectory4 = Trajectory::create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              Trajectory trajectory4 = Trajectory::create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
               map["KL+"] = trajectory4;
               targets["KL+"] = target4;
               trajectory4.printToStdout();
@@ -365,7 +371,7 @@ int main() {
               Target target5;
               target5.v = ref_vel + 0.1*2;
               target5.lane = target_lane;
-              Trajectory trajectory5 = Trajectory::create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              Trajectory trajectory5 = Trajectory::create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
               map["KL++"] = trajectory5;
               targets["KL++"] = target5;
               trajectory5.printToStdout();
@@ -375,18 +381,18 @@ int main() {
                 Target target6;
                 target6.v = ref_vel - 0.1;
                 target6.lane = target_lane;
-                Trajectory trajectory6 = Trajectory::create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                Trajectory trajectory6 = Trajectory::create_trajectory(currentLocation, target6, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
                 map["KL-"] = trajectory6;
                 targets["KL-"] = target6;
                 trajectory6.printToStdout();
               }
 
-              if(ref_vel > 0.5) {
+              if(ref_vel > 0.3) {
                 cout << "KL--" << endl;
                 Target target7;
                 target7.v = ref_vel - 0.1*2;
                 target7.lane = target_lane;
-                Trajectory trajectory7 = Trajectory::create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                Trajectory trajectory7 = Trajectory::create_trajectory(currentLocation, target7, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
                 map["KL--"] = trajectory7;
                 targets["KL--"] = target7;
                 trajectory7.printToStdout();

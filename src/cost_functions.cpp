@@ -103,7 +103,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     return 1.0;
   }
   if (min_distance < RECOMMENDED_DISTANCE) {
-    return 0.3;
+    return (RECOMMENDED_DISTANCE - min_distance)/(RECOMMENDED_DISTANCE - MIN_DISTANCE);
   }
   return 0.0;
 }
@@ -119,7 +119,7 @@ double Trajectory::overspeeding_cost() const {
   return 1.0;
 }
 
-Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, double T) {
+Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy, double T) {
   Trajectory result;
   if (target.lane < 0 || target.lane > 2) {
     return ImpossibleTrajectory();
@@ -196,7 +196,7 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
     double s_val = eval(s_coeff, t);
     double d_val = eval(d_coeff, t);
     //cout << ">> " << s_val << " <o> " << d_val <<  " <<"<< endl;
-    vector<double> next_wp = getXY(s_val, d_val, maps_s, maps_x, maps_y);
+    vector<double> next_wp = getXY(s_val, d_val, maps_s, maps_x, maps_y, maps_dx, maps_dy);
     ptsx.push_back(next_wp[0]);
     ptsy.push_back(next_wp[1]);
   }
@@ -309,7 +309,7 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   return result;
 }
 
-Trajectory Trajectory::create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y) {
+Trajectory Trajectory::create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy) {
   Trajectory result;
   if (target.lane < 0 || target.lane > 2) {
     result.final_d = target.lane*4+2;
@@ -355,9 +355,9 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
 
   double vel_m_per_s = max(1.0, target.v);
   //cout << "> " << ref_s << " + " << vel_m_per_s << " * X" << endl; 
-  vector<double> next_wp0 = getXY(ref_s + vel_m_per_s*2.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y);
-  vector<double> next_wp1 = getXY(ref_s + vel_m_per_s*3.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y);
-  vector<double> next_wp2 = getXY(ref_s + vel_m_per_s*5.0, (2.0*4.0*target.lane), maps_s, maps_x, maps_y);
+  vector<double> next_wp0 = getXY(ref_s + vel_m_per_s*2.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y, maps_dx, maps_dy);
+  vector<double> next_wp1 = getXY(ref_s + vel_m_per_s*3.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y, maps_dx, maps_dy);
+  vector<double> next_wp2 = getXY(ref_s + vel_m_per_s*5.0, (2.0*4.0*target.lane), maps_s, maps_x, maps_y, maps_dx, maps_dy);
 
   ptsx.push_back(next_wp0[0]);
   ptsx.push_back(next_wp1[0]);

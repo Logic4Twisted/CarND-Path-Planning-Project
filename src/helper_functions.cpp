@@ -3,12 +3,12 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "Eigen-3.3/Eigen/Dense"
 #include <math.h>
+#include "spline.h"
 
 using namespace std;
 using namespace Eigen;
 
-double distance(double x1, double y1, double x2, double y2)
-{
+double distance(double x1, double y1, double x2, double y2) {
 	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
 }
 
@@ -65,7 +65,7 @@ int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x,
 
 	double heading = atan2( (map_y-y),(map_x-x) );
 
-	double angle = fabs(theta-heading);
+	double angle = fmod(fabs(theta-heading), 2*pi());
 
 	if(angle > pi()/4 && angle < 7*pi()/4)
 	{
@@ -125,17 +125,49 @@ vector<double> getFrenet(double x, double y, double theta, const vector<double> 
 }
 
 // Transform from Frenet s,d coordinates to Cartesian x,y
-vector<double> getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y)
-{
+vector<double> getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const std::vector<double> &maps_dx, const std::vector<double> &maps_dy) {
 	int prev_wp = -1;
+	int map_size = maps_x.size();
 
 	while(s > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1) ))
 	{
 		prev_wp++;
 	}
+	vector<int> wps;
+	wps.push_back((prev_wp - 1 + map_size)%map_size);
+	wps.push_back(prev_wp%map_size);
+	wps.push_back((prev_wp+1)%map_size);
+	wps.push_back((prev_wp+2)%map_size);
 
-	int wp2 = (prev_wp+1)%maps_x.size();
+	
+	vector<double> ptsx, ptsy, ptsdx, ptsdy, ptss;
+	for (int i = 0; i < wps.size(); i++) {
+		int wp = wps[i];
+		ptsx.push_back(maps_x[wp]);
+		ptsy.push_back(maps_y[wp]);
+		ptsdx.push_back(maps_dx[wp]);
+		ptsdy.push_back(maps_dy[wp]);
 
+		double wp_s = maps_s[wp];
+		if (i > 0 && ptss[i-1] > maps_s[wp]) wp_s += TRACK_LEN;
+		ptss.push_back(wp_s);
+	}
+	tk::spline spline_x_s;
+	spline_x_s.set_points(ptss, ptsx);
+
+	tk::spline spline_y_s;
+	spline_y_s.set_points(ptss, ptsy);
+
+	tk::spline spline_dx_s;
+	spline_dx_s.set_points(ptss, ptsdx);
+
+	tk::spline spline_dy_s;
+	spline_dy_s.set_points(ptss, ptsdy);
+
+	double x = spline_x_s(s) + d*spline_dx_s(s);
+	double y = spline_y_s(s) + d*spline_dy_s(s);
+
+	/*
 	double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
 	// the x,y,s along the segment
 	double seg_s = (s-maps_s[prev_wp]);
@@ -147,7 +179,7 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 	double x = seg_x + d*cos(perp_heading);
 	double y = seg_y + d*sin(perp_heading);
-
+	*/
 	return {x,y};
 
 }
