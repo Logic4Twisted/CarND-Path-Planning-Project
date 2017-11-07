@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include "helper_functions.h"
+#include "map.h"
 
 const static double COLLISION = 1.0E6;
 const static double PROJECT_GOAL = 1.0E6;
@@ -59,8 +60,8 @@ class Trajectory
   double collision_cost(vector<vector<double>> sensor_fusion) const;
   double inefficiency_cost() const;
   double overspeeding_cost() const;
-  static Trajectory create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy, double T);
-  static Trajectory create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy);
+  static Trajectory create_CL_trajectory(CarLocation current, Target target, HighwayMap map, double T);
+  static Trajectory create_trajectory(CarLocation current, Target target, HighwayMap map);
   void printToStdout() const;
 private:
   void calcAvgSpeed();

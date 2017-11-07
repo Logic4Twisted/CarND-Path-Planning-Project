@@ -119,7 +119,7 @@ double Trajectory::overspeeding_cost() const {
   return 1.0;
 }
 
-Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy, double T) {
+Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, HighwayMap map, double T) {
   Trajectory result;
   if (target.lane < 0 || target.lane > 2) {
     return ImpossibleTrajectory();
@@ -196,7 +196,7 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
     double s_val = eval(s_coeff, t);
     double d_val = eval(d_coeff, t);
     //cout << ">> " << s_val << " <o> " << d_val <<  " <<"<< endl;
-    vector<double> next_wp = getXY(s_val, d_val, maps_s, maps_x, maps_y, maps_dx, maps_dy);
+    vector<double> next_wp = map.getXY(s_val, d_val);
     ptsx.push_back(next_wp[0]);
     ptsy.push_back(next_wp[1]);
   }
@@ -309,7 +309,7 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   return result;
 }
 
-Trajectory Trajectory::create_trajectory(CarLocation current, Target target, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y, const vector<double> &maps_dx, const vector<double> &maps_dy) {
+Trajectory Trajectory::create_trajectory(CarLocation current, Target target, HighwayMap map) {
   Trajectory result;
   if (target.lane < 0 || target.lane > 2) {
     result.final_d = target.lane*4+2;
@@ -349,15 +349,15 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
   }
   //cout << "ref_yaw = " << (ref_yaw * 180.0 / M_PI) << endl;
   
-  vector<double> ref_sd = getFrenet(ref_x, ref_y, current.car_yaw, maps_x, maps_y);
+  vector<double> ref_sd = map.getFrenet(ref_x, ref_y, current.car_yaw);
   double ref_s = ref_sd[0];
   double ref_d = ref_sd[1];
 
   double vel_m_per_s = max(1.0, target.v);
   //cout << "> " << ref_s << " + " << vel_m_per_s << " * X" << endl; 
-  vector<double> next_wp0 = getXY(ref_s + vel_m_per_s*2.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y, maps_dx, maps_dy);
-  vector<double> next_wp1 = getXY(ref_s + vel_m_per_s*3.0, (2.0+4.0*target.lane), maps_s, maps_x, maps_y, maps_dx, maps_dy);
-  vector<double> next_wp2 = getXY(ref_s + vel_m_per_s*5.0, (2.0*4.0*target.lane), maps_s, maps_x, maps_y, maps_dx, maps_dy);
+  vector<double> next_wp0 = map.getXY(ref_s + vel_m_per_s*2.0, (2.0+4.0*target.lane));
+  vector<double> next_wp1 = map.getXY(ref_s + vel_m_per_s*3.0, (2.0+4.0*target.lane));
+  vector<double> next_wp2 = map.getXY(ref_s + vel_m_per_s*5.0, (2.0*4.0*target.lane));
 
   ptsx.push_back(next_wp0[0]);
   ptsx.push_back(next_wp1[0]);
@@ -401,7 +401,7 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, con
   for (int i = 0; i < current.previous_path_x.size(); i++) {
     result.x.push_back(current.previous_path_x[i]);
     result.y.push_back(current.previous_path_y[i]);
-    vector<double> sd = getFrenet(current.previous_path_x[i], current.previous_path_y[i], current.car_yaw, maps_x, maps_y);
+    vector<double> sd = map.getFrenet(current.previous_path_x[i], current.previous_path_y[i], current.car_yaw);
     result.s.push_back(sd[0]);
     result.d.push_back(sd[1]);
   }

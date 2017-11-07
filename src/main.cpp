@@ -17,6 +17,7 @@
 #include <ratio>
 #include <chrono>
 #include <assert.h>
+#include "map.h"
 
 using namespace std;
 using namespace Eigen;
@@ -48,11 +49,7 @@ string minCostState(map<string, double> costs) {
   return min.first;
 }
 
-vector<double> map_waypoints_x;
-vector<double> map_waypoints_y;
-vector<double> map_waypoints_s;
-vector<double> map_waypoints_dx;
-vector<double> map_waypoints_dy;
+HighwayMap highwayMap;
 
 double previous_car_speed, previous_car_acceleration;
 double ref_vel;
@@ -98,14 +95,8 @@ int main() {
   	iss >> s;
   	iss >> d_x;
   	iss >> d_y;
-  	map_waypoints_x.push_back(x);
-  	map_waypoints_y.push_back(y);
-  	map_waypoints_s.push_back(s);
-  	map_waypoints_dx.push_back(d_x);
-  	map_waypoints_dy.push_back(d_y);
+    highwayMap.addWaypoint(x, y, s, d_x, d_y);
   }
-
-  cout << "Map size = " << map_waypoints_x.size() << endl;
 
   target_lane = 1;
   previous_car_speed = 0.0;
@@ -258,7 +249,7 @@ int main() {
 
               
               cout << "CS" << endl;
-              Trajectory trajectory0 = Trajectory::create_trajectory(currentLocation, target1, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
+              Trajectory trajectory0 = Trajectory::create_trajectory(currentLocation, target1, highwayMap);
               map["CS"] = trajectory0;
               targets["CS"] = target1;
               trajectory0.printToStdout();
@@ -283,7 +274,7 @@ int main() {
                 target8.s = closest_in_this_lane[1] + closest_in_this_lane[2]*dt - 10.0;
                 target8.a = 0.0;
 
-                Trajectory trajectory8 = Trajectory::create_CL_trajectory(currentLocation, target8, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy, dt);
+                Trajectory trajectory8 = Trajectory::create_CL_trajectory(currentLocation, target8, highwayMap, dt);
                 map["FL"] = trajectory8;
                 targets["FL"] = target8;
                 trajectory8.printToStdout();
@@ -320,7 +311,7 @@ int main() {
                   target2.a = 0.0;
                 }
                 
-                Trajectory trajectory2 = Trajectory::create_CL_trajectory(currentLocation, target2, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy, dt);
+                Trajectory trajectory2 = Trajectory::create_CL_trajectory(currentLocation, target2, highwayMap, dt);
                 map["CL-L"] = trajectory2;
                 targets["CL-L"] = target2;
                 trajectory2.printToStdout();
@@ -351,7 +342,7 @@ int main() {
                   target3.s = closest_in_rl[1] + closest_in_rl[2]*dt - 10.0;
                   target3.a = 0.0;
                 }
-                Trajectory trajectory3 = Trajectory::create_CL_trajectory(currentLocation, target3, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy, dt);
+                Trajectory trajectory3 = Trajectory::create_CL_trajectory(currentLocation, target3, highwayMap, dt);
                 map["CL-R"] = trajectory3;
                 targets["CL-R"] = target3;
                 trajectory3.printToStdout();
@@ -362,7 +353,7 @@ int main() {
               Target target4;
               target4.v = ref_vel + 0.1;
               target4.lane = target_lane;
-              Trajectory trajectory4 = Trajectory::create_trajectory(currentLocation, target4, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
+              Trajectory trajectory4 = Trajectory::create_trajectory(currentLocation, target4, highwayMap);
               map["KL+"] = trajectory4;
               targets["KL+"] = target4;
               trajectory4.printToStdout();
@@ -371,7 +362,7 @@ int main() {
               Target target5;
               target5.v = ref_vel + 0.1*2;
               target5.lane = target_lane;
-              Trajectory trajectory5 = Trajectory::create_trajectory(currentLocation, target5, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
+              Trajectory trajectory5 = Trajectory::create_trajectory(currentLocation, target5, highwayMap);
               map["KL++"] = trajectory5;
               targets["KL++"] = target5;
               trajectory5.printToStdout();
@@ -381,7 +372,7 @@ int main() {
                 Target target6;
                 target6.v = ref_vel - 0.1;
                 target6.lane = target_lane;
-                Trajectory trajectory6 = Trajectory::create_trajectory(currentLocation, target6, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
+                Trajectory trajectory6 = Trajectory::create_trajectory(currentLocation, target6, highwayMap);
                 map["KL-"] = trajectory6;
                 targets["KL-"] = target6;
                 trajectory6.printToStdout();
@@ -392,7 +383,7 @@ int main() {
                 Target target7;
                 target7.v = ref_vel - 0.1*2;
                 target7.lane = target_lane;
-                Trajectory trajectory7 = Trajectory::create_trajectory(currentLocation, target7, map_waypoints_s, map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
+                Trajectory trajectory7 = Trajectory::create_trajectory(currentLocation, target7, highwayMap);
                 map["KL--"] = trajectory7;
                 targets["KL--"] = target7;
                 trajectory7.printToStdout();
