@@ -263,13 +263,6 @@ int main() {
                 target8.v = closest_in_this_lane[2];
                 target8.lane = target_lane;
                 double dt = 4.0;
-                /*
-                if (closest_in_this_lane[2] < car_speed) {
-                  dt = (closest_in_this_lane[1] - car_s)/(car_speed - closest_in_this_lane[2])*2.0;
-                  dt = min(10.0, dt);
-                  dt = max(3.0, dt);
-                }
-                */
                 cout << "dT = " << dt << endl;
                 target8.s = closest_in_this_lane[1] + closest_in_this_lane[2]*dt - 10.0;
                 target8.a = 0.0;

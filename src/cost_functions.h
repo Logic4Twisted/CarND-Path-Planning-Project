@@ -4,6 +4,7 @@
 #include <math.h>
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include "helper_functions.h"
 #include "map.h"
 
@@ -31,10 +32,13 @@ using namespace std;
 class Trajectory
 {
   public:
-  std::vector<double> s;
-  std::vector<double> d;
-  std::vector<double> x;
-  std::vector<double> y;
+  deque<double> s;
+  deque<double> d;
+  deque<double> x;
+  deque<double> y;
+  deque<double> vs;
+  deque<double> va;
+
   double start_s;
   double start_d;
   double final_s;
@@ -62,7 +66,12 @@ class Trajectory
   double overspeeding_cost() const;
   static Trajectory create_CL_trajectory(CarLocation current, Target target, HighwayMap map, double T);
   static Trajectory create_trajectory(CarLocation current, Target target, HighwayMap map);
+  static unordered_map<string, Trajectory> generate_trajectories(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T);
   void printToStdout() const;
+  vector<double> front();
+  void pop_front();
+  void push_back(vector<double> dp);
+
 private:
   void calcAvgSpeed();
   void calcMaxSpeed();

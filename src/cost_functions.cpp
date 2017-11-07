@@ -5,6 +5,7 @@
 #include <cfloat>
 #include <algorithm>
 #include <math.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -367,13 +368,6 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, Hig
   ptsy.push_back(next_wp1[1]);
   ptsy.push_back(next_wp2[1]);
 
-  /*
-  for (int i = 0; i < ptsx.size(); i++) {
-    cout << ptsx[i] << ", " << ptsy[i] << endl;
-  }
-  cout << endl;
-  */
-
   for (int i = 0; i < ptsx.size(); i++) {
     double shift_x = ptsx[i] - ref_x;
     double shift_y = ptsy[i] - ref_y;
@@ -381,14 +375,6 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, Hig
     ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
     ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
   }
-
-  
-  
-  /*
-  for (int i = 0; i < ptsx.size(); i++) {
-    cout << ptsx[i] << ", " << ptsy[i] << endl;
-  }
-  */
 
   for (int i = 0; i < ptsx.size() - 1; i++) {
     if (ptsx[i] >= ptsx[i+1]) {
@@ -430,9 +416,6 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, Hig
 
     result.x.push_back(x_point);
     result.y.push_back(y_point);
-    //vector<double> sd = getFrenet(x_point, y_point, current.car_yaw, maps_x, maps_y);
-    //result.s.push_back(sd[0]);
-    //result.d.push_back(sd[1]);
     result.s.push_back(current.car_s + x_add_on);
     result.d.push_back(current.car_d + s(x_add_on));
   }
@@ -451,6 +434,71 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, Hig
   result.calcMaxSpeed();
 
   return result;
+}
+
+unordered_map<string, Trajectory> generate_trajectories(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T) {
+  unordered_map<string, Trajectory> result;
+  while (!previous.s.empty() && current.car_s > previous.s[0]) {
+    previous.pop_front();
+  }
+  while (result.size() < N_to_generate) {
+    Trajectory t;
+    while (!previous.s.empty() && t.s.size() < 10) {
+      t.push_back(previous.front());
+      previous.pop_front();
+    }
+    double start_s = current.car_s;
+    double start_v = current.car_speed;
+    double start_a = current.car_acceleration;
+    int size = t.s.size();
+    if (size != 0) {
+      start_s = t.s[size-1];
+      start_v = t.vs[size-1];
+      start_a = t.va[size-1];
+    }
+
+    double finish_s = start_s + start_v*T + start_a*T*T/2;
+    double finish_v = start_v + start_a*T;
+    double finish_a = start_a;
+
+    if (finish_s < start_s) continue;
+    if (finish_v < 0.0) continue;
+
+
+    string identfier = "Tr" + to_string(result.size());
+    result[identfier] = t;
+  }
+
+  return result;
+}
+
+vector<double> Trajectory::front() {
+  vector<double> result;
+  result.push_back(s.front());
+  result.push_back(d.front());
+  result.push_back(x.front());
+  result.push_back(y.front());
+  result.push_back(vs.front());
+  result.push_back(va.front());
+  return result;
+}
+
+void Trajectory::pop_front() {
+  s.pop_front();
+  d.pop_front();
+  x.pop_front();
+  y.pop_front();
+  vs.pop_front();
+  va.pop_front();
+}
+
+void Trajectory::push_back(vector<double> dp) {
+  s.push_back(dp[0]);
+  d.push_back(dp[1]);
+  x.push_back(dp[2]);
+  y.push_back(dp[3]);
+  vs.push_back(dp[4]);
+  va.push_back(dp[5]);
 }
 
 void Trajectory::calcMaxSpeed() {
