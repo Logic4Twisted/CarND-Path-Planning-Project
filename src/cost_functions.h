@@ -71,10 +71,9 @@ class Trajectory
   vector<double> front();
   void pop_front();
   void push_back(vector<double> dp);
+  void calculateStats();
 
 private:
-  void calcAvgSpeed();
-  void calcMaxSpeed();
   double acceleration_cost() const;
   double jerk_cost() const;
 };

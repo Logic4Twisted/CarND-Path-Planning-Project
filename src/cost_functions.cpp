@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <math.h>
 #include <unordered_map>
+#include <random>
 
 using namespace std;
 
@@ -305,7 +306,7 @@ Trajectory Trajectory::create_CL_trajectory(CarLocation current, Target target, 
   result.lane_change = current.car_lane - target.lane;
   result.lane = target.lane;
 
-  result.calcAvgSpeed();
+  //result.calcAvgSpeed();
   
   return result;
 }
@@ -429,15 +430,18 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, Hig
   result.lane_change = current.car_lane - target.lane;
   result.lane = target.lane;
   
-  result.calcAvgSpeed();
+  //result.calcAvgSpeed();
 
-  result.calcMaxSpeed();
+  //result.calcMaxSpeed();
 
   return result;
 }
 
 unordered_map<string, Trajectory> generate_trajectories(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T) {
   unordered_map<string, Trajectory> result;
+
+  std::default_random_engine de(time(0));
+
   while (!previous.s.empty() && current.car_s > previous.s[0]) {
     previous.pop_front();
   }
@@ -451,19 +455,74 @@ unordered_map<string, Trajectory> generate_trajectories(Trajectory previous, Car
     double start_v = current.car_speed;
     double start_a = current.car_acceleration;
     int size = t.s.size();
-    if (size != 0) {
+    if (size > 0) {
       start_s = t.s[size-1];
       start_v = t.vs[size-1];
       start_a = t.va[size-1];
     }
 
-    double finish_s = start_s + start_v*T + start_a*T*T/2;
-    double finish_v = start_v + start_a*T;
+    double finish_s = start_s;
+    double finish_v = start_v;
     double finish_a = start_a;
 
-    if (finish_s < start_s) continue;
-    if (finish_v < 0.0) continue;
+    std::normal_distribution<> dist_s(finish_s, 10.0);
+    std::normal_distribution<> dist_v(finish_v, 3.0);
+    std::normal_distribution<> dist_a(finish_a, 3.0);
 
+    finish_s = dist_s(de);
+    finish_v = dist_v(de);
+    finish_a = dist_a(de);
+
+    vector<double> s_start = {start_s, start_v, start_a};
+    vector<double> s_final = {finish_s, finish_v, finish_a};
+    vector<double> s_coeff = jmt(s_start, s_final, T);
+  
+    vector<double> s_v = dif(s_coeff);
+    vector<double> s_a = dif(s_v);
+    vector<double> s_j = dif(s_a);
+    cout << "T = " << T << endl;
+    cout << "s_start = [" << eval(s_coeff, 0.0) << ", " << eval(s_v, 0.0) << ", " << eval(s_a, 0.0) << ']' << endl;
+    cout << "s_end = [" << eval(s_coeff, T) << ", " << eval(s_v, T) << ", " << eval(s_a, T) << ']' << endl;
+
+    double start_d = current.car_d;
+    if (size > 0) {
+      start_d = t.d[size-1];
+    }
+    double finish_d = 4.0*floor(current.car_d/4.0) + 2.0;
+
+    cout << "start_d = " << start_d << " finish_d = " << finish_d << endl;
+
+    vector<double> d_coeff = {start_d, (finish_d - start_d)/T};
+
+    t.max_acceleration_s = 0.0;
+    t.max_jerk_s = 0.0;
+    t.max_velocity_s = 0.0;
+
+    t.max_jerk_d = 0.0;
+    t.max_acceleration_d = 0.0;
+    t.max_velocity_d = d_coeff[1];
+
+    for (double dt = 0.02; dt <= T; dt += 0.02) {
+      double s_ = eval(s_coeff, dt);
+      double d_ = eval(d_coeff, dt);
+      double sv_ = eval(s_v, dt);
+      double sa_ = eval(s_a, dt);
+      double sj_ = eval(s_j, dt);
+      t.s.push_back(s_);
+      t.d.push_back(d_);
+      t.vs.push_back(sv_);
+      t.va.push_back(sa_);
+
+      vector<double> xy = map.getXY(s_, d_);
+      t.x.push_back(xy[0]);
+      t.y.push_back(xy[1]);
+
+      t.max_velocity_s = max(t.max_velocity_s, sv_);
+      t.max_acceleration_s = max(t.max_acceleration_s, sa_);
+      t.max_jerk_s = max(t.max_jerk_s, sj_);
+    }
+
+    t.calculateStats();
 
     string identfier = "Tr" + to_string(result.size());
     result[identfier] = t;
@@ -501,21 +560,11 @@ void Trajectory::push_back(vector<double> dp) {
   va.push_back(dp[5]);
 }
 
-void Trajectory::calcMaxSpeed() {
-  double temp_max = 0.0;
-  for (int i = 1; i < x.size(); i++) {
-    temp_max = max(temp_max, distance(x[i], y[i], x[i-1], y[i-1]));
-  }
-  max_speed = temp_max/0.02;
-}
-
-void Trajectory::calcAvgSpeed() {
-  double sum = 0.0;
-  for (int i = 1; i < x.size(); i++) {
-    sum += distance(x[i], y[i], x[i-1], y[i-1]);
-  }
-  sum /= (x.size()-1);
-  avg_speed = sum/0.02;
+void Trajectory::calculateStats() {
+  avg_speed = average(vs);
+  final_d = d.back();
+  final_s = s.back();
+  final_v = vs.back();
 }
 
 void Trajectory::printToStdout() const {
@@ -523,7 +572,6 @@ void Trajectory::printToStdout() const {
   cout << "| final_d = " << final_d << endl;
   cout << "| final_s = " << final_s << endl;
   cout << "| final_v = " << final_v << endl;
-  cout << "| lane = " << lane << " lane_change = " << lane_change << endl;
   cout << "| avg speed = " << avg_speed <<  " max speed = " << max_speed << endl;
   cout << "|- s: " << endl;
   cout << "|   max_velocity = " << max_velocity_s << endl;
