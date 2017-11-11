@@ -8,6 +8,8 @@ using namespace std;
 vector<double> HighwayMap::getXY(double s, double d) {
 	int prev_wp = -1;
 	int map_size = waypoints_x.size();
+	
+	s = fmod(s, TRACK_LEN);
 
 	while(s > waypoints_s[prev_wp+1] && (prev_wp < (int)(waypoints_s.size()-1) ))
 	{

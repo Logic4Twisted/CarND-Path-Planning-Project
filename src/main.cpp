@@ -17,6 +17,7 @@
 #include <ratio>
 #include <chrono>
 #include <assert.h>
+#include <unordered_map>
 #include "map.h"
 
 using namespace std;
@@ -44,12 +45,14 @@ bool pairCompare( pair<string,double> i, pair<string, double> j) {
   return i.second < j.second;
 }
 
-string minCostState(map<string, double> costs) {
+string minCostState(unordered_map<string, double> costs) {
   pair<string, double> min = *min_element(costs.begin(), costs.end(), pairCompare );
   return min.first;
 }
 
 HighwayMap highwayMap;
+
+Trajectory previous;
 
 double previous_car_speed, previous_car_acceleration;
 double ref_vel;
@@ -216,194 +219,47 @@ int main() {
               cout << "Distance to next car in lane = " << (closest_in_this_lane[1] - car_s) << " m" << endl;
             }
 
-            map<string, Target> targets;
-            map<string, double> costs;
-            map<string, Trajectory> map;
+            Trajectory selectedTrajectory;
+            if (in_lane) {
+              unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 20, 4.0);
             
-            vector<double> next_x_vals;
-            vector<double> next_y_vals;
-
-            if (state == "CL-L" || state == "CL-R") {
-              if (in_lane || prev_size < 30) {
-                state = "CS";
-              }
-              for (int i = 0; i < previous_path_x.size(); i++) {
-                next_x_vals.push_back(previous_path_x[i]);
-                next_y_vals.push_back(previous_path_y[i]);
-              }
-
-            }
-            else if (state == "FL" && prev_size > 50) {
-              for (int i = 0; i < previous_path_x.size(); i++) {
-                next_x_vals.push_back(previous_path_x[i]);
-                next_y_vals.push_back(previous_path_y[i]);
-              }
-            }
-            else {
-              Target target1;
-              target1.v = ref_vel;
-              target1.lane = target_lane;
-              target1.time = 0.0;
-              target1.s = 0.0;
-              target1.d = 0.0;
-
-              
-              cout << "CS" << endl;
-              Trajectory trajectory0 = Trajectory::create_trajectory(currentLocation, target1, highwayMap);
-              map["CS"] = trajectory0;
-              targets["CS"] = target1;
-              trajectory0.printToStdout();
-
-
-              
-              if (false && closest_in_this_lane.size() != 0) {
-                cout << "FL" << endl;
-                cout << "closest: id = " << closest_in_this_lane[0] << " s = " << closest_in_this_lane[1] << " v = " << closest_in_this_lane[2] << endl;
-                Target target8;
-                target8.v = closest_in_this_lane[2];
-                target8.lane = target_lane;
-                double dt = 4.0;
-                cout << "dT = " << dt << endl;
-                target8.s = closest_in_this_lane[1] + closest_in_this_lane[2]*dt - 10.0;
-                target8.a = 0.0;
-
-                Trajectory trajectory8 = Trajectory::create_CL_trajectory(currentLocation, target8, highwayMap, dt);
-                map["FL"] = trajectory8;
-                targets["FL"] = target8;
-                trajectory8.printToStdout();
-              }
-
-              double distance_to_closest_in_front = 1000.0;
-              if (closest_in_this_lane.size() != 0) {
-                distance_to_closest_in_front = closest_in_this_lane[1] - car_s;
-              }
-
-              // CL-L
-              if (can_change_lane && target_lane > 0 && prev_size > 1 && car_speed > 5.0 && distance_to_closest_in_front > 7.0) {
-                cout << "CL-L" << endl;
-                vector<double> closest_in_ll = closest_in_front(sensor_fusion, target_lane-1, car_s, 30.0);
-                Target target2;
-                target2.lane = target_lane - 1;
-                double dt = 3.0;
-                if (closest_in_ll.size() == 0) {
-                  target2.v = min(49.0, car_speed + currentLocation.car_acceleration*dt);
-                  target2.s = car_s + currentLocation.car_speed*dt + currentLocation.car_acceleration*pow(dt, 2)/2.0;
-                  target2.a = currentLocation.car_acceleration;
-                }
-                else {
-                  cout << "closest: id = " << closest_in_ll[0] << " s = " << closest_in_ll[1] << " v = " << closest_in_ll[2] << endl;
-                  target2.v = closest_in_ll[2];
-                  dt = 5.0;
-                  if (closest_in_ll[2] < car_speed) {
-                    dt = (closest_in_ll[1] - car_s)/(car_speed - closest_in_ll[2])*2.0;
-                    dt = min(10.0, dt);
-                    dt = max(4.0, dt);
-                  }
-                  cout << "dT = " << dt << endl;
-                  target2.s = closest_in_ll[1] + closest_in_ll[2]*dt - 10.0;
-                  target2.a = 0.0;
-                }
-                
-                Trajectory trajectory2 = Trajectory::create_CL_trajectory(currentLocation, target2, highwayMap, dt);
-                map["CL-L"] = trajectory2;
-                targets["CL-L"] = target2;
-                trajectory2.printToStdout();
-              }
-
-              // CL-R
-              if (can_change_lane && target_lane < 2 && prev_size > 1 && car_speed > 5.0 && distance_to_closest_in_front > 7.0) {
-                cout << "CL-R" << endl;
-                vector<double> closest_in_rl = closest_in_front(sensor_fusion, target_lane+1, car_s, 30.0);
-                Target target3;
-                target3.lane = target_lane + 1;
-                double dt = 3.0;
-                if (closest_in_rl.size() == 0) {
-                  target3.v = min(49.0, car_speed + currentLocation.car_acceleration*3.0);
-                  target3.s = car_s + currentLocation.car_speed*3.0 + currentLocation.car_acceleration*pow(3.0, 2.0)/2.0;
-                  target3.a = currentLocation.car_acceleration;
-                }
-                else {
-                  cout << "closest: id = " << closest_in_rl[0] << " s = " << closest_in_rl[1] << " v = " << closest_in_rl[2] << endl;
-                  target3.v = closest_in_rl[2];
-                  dt = 5.0;
-                  if (closest_in_rl[2] < car_speed) {
-                    dt = (closest_in_rl[1] - car_s)/(car_speed - closest_in_rl[2])*2.0;
-                    dt = min(10.0, dt);
-                    dt = max(4.0, dt);
-                  }
-                  cout << "dT = " << dt << endl;
-                  target3.s = closest_in_rl[1] + closest_in_rl[2]*dt - 10.0;
-                  target3.a = 0.0;
-                }
-                Trajectory trajectory3 = Trajectory::create_CL_trajectory(currentLocation, target3, highwayMap, dt);
-                map["CL-R"] = trajectory3;
-                targets["CL-R"] = target3;
-                trajectory3.printToStdout();
-              }
-
-
-              cout << "KL+" << endl;
-              Target target4;
-              target4.v = ref_vel + 0.1;
-              target4.lane = target_lane;
-              Trajectory trajectory4 = Trajectory::create_trajectory(currentLocation, target4, highwayMap);
-              map["KL+"] = trajectory4;
-              targets["KL+"] = target4;
-              trajectory4.printToStdout();
-
-              cout << "KL++" << endl;
-              Target target5;
-              target5.v = ref_vel + 0.1*2;
-              target5.lane = target_lane;
-              Trajectory trajectory5 = Trajectory::create_trajectory(currentLocation, target5, highwayMap);
-              map["KL++"] = trajectory5;
-              targets["KL++"] = target5;
-              trajectory5.printToStdout();
-
-              if (ref_vel > 0.2) {
-                cout << "KL-" << endl;
-                Target target6;
-                target6.v = ref_vel - 0.1;
-                target6.lane = target_lane;
-                Trajectory trajectory6 = Trajectory::create_trajectory(currentLocation, target6, highwayMap);
-                map["KL-"] = trajectory6;
-                targets["KL-"] = target6;
-                trajectory6.printToStdout();
-              }
-
-              if(ref_vel > 0.3) {
-                cout << "KL--" << endl;
-                Target target7;
-                target7.v = ref_vel - 0.1*2;
-                target7.lane = target_lane;
-                Trajectory trajectory7 = Trajectory::create_trajectory(currentLocation, target7, highwayMap);
-                map["KL--"] = trajectory7;
-                targets["KL--"] = target7;
-                trajectory7.printToStdout();
-              }
-
+              unordered_map<string, double> costs;
               for (auto const& x : map) {
                 cout << x.first << "(";
                 costs[x.first] = x.second.cost(sensor_fusion);
                 cout << ") :: " << costs[x.first] << endl;
               }
-
               state = minCostState(costs);
               cout << "Min cost State = " << state << endl;
-              Trajectory trajectory = map[state];
-              ref_vel = trajectory.final_v;
-              target_lane = targets[state].lane;
 
-              for (int i = 0; i < trajectory.x.size(); i++) {
-                next_x_vals.push_back(trajectory.x[i]);
-                next_y_vals.push_back(trajectory.y[i]);
-              }
+              selectedTrajectory = map[state];
             }
+            else {
+              selectedTrajectory = Trajectory::reuseTrajectory(previous, currentLocation, highwayMap);
+            }
+            
+
+            selectedTrajectory.printToStdout();
+
+            target_lane = selectedTrajectory.getTargetLane();
+
+            vector<double> next_x_vals;
+            vector<double> next_y_vals;
+            for (int i = 0; i < min(selectedTrajectory.size(), 50); i++) {
+              vector<double> xy = highwayMap.getXY(selectedTrajectory.s[i], selectedTrajectory.d[i]);
+              next_x_vals.push_back(xy[0]);
+              next_y_vals.push_back(xy[1]);
+            }
+
+            cout << "Sent " << next_x_vals.size() << " as Trajectory " << endl;
+
 
             json msgJson;
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
+
+            previous = selectedTrajectory;
 
           	auto msg = "42[\"control\","+ msgJson.dump()+"]";
 

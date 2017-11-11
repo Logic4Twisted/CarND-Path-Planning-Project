@@ -92,6 +92,7 @@ vector<double> jmt(vector<double> start, vector<double> final, double T) {
 double eval(vector<double> coeff, double x) {
   assert(coeff.size() > 0);
   double result = coeff[0];
+  if (x < 0.00001) return result;
   for (int i = 1; i < coeff.size(); i++) {
     result += coeff[i]*pow(x, i);
   }
