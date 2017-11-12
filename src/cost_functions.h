@@ -63,8 +63,6 @@ class Trajectory
   double max_acceleration_d;
   double max_velocity_d;
   double min_legal_distance;
-
-  double max_speed;
   
   int lane_change;
   int lane;

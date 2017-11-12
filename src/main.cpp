@@ -149,7 +149,7 @@ int main() {
             timespamp = t2;
 
 
-            std::cout << "***********************************************************" << endl;
+            //std::cout << "***********************************************************" << endl;
 
             CarLocation currentLocation;
             currentLocation.car_x = car_x;
@@ -186,6 +186,7 @@ int main() {
 
             bool in_lane = (fabs(4.0*target_lane + 2.0 - car_d) < 1.0);
 
+            /*
             std::cout << "prev size = " << prev_size << ", dt = " << dt.count() << " ms " << endl ;
             std::cout << "position = (" << car_s <<  ", " << car_d << ") xy = (" << car_x << ", " << car_y << ")" << endl;
             std::cout << "speed = " << car_speed << " m/s = " << (car_speed*2.24) << " mi/h" << endl;
@@ -196,7 +197,8 @@ int main() {
             std::cout << "look ahead = " << (end_path_s - car_s) << " m" << endl;
             std::cout << "state = " << state << endl;
             std::cout << "current lane = " << currentLocation.car_lane << ", target lane = " << target_lane << (in_lane?" IN LANE ":" CHANGING LANE ") << endl; 
-            
+            */
+
             for (int i = 0; i < sensor_fusion.size(); i++) {
               for (int j = 0; j < sensor_fusion[i].size(); j++) {
                 cout << sensor_fusion[i][j] << " ";
@@ -217,26 +219,18 @@ int main() {
               cout << "!! Jerk !!" << endl;
             }
 
-            vector<double> closest_in_this_lane = closest_in_front(sensor_fusion, (int)(car_d/4.0), car_s, 50.0);
-            if (closest_in_this_lane.size() == 0) {
-              cout << "No car in next 50 meters." << endl;
-            }
-            else {
-              cout << "Distance to next car in lane = " << (closest_in_this_lane[1] - car_s) << " m" << endl;
-            }
-
             Trajectory selectedTrajectory;
             if (in_lane || previous.size() < 20) {
               unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 4.0);
             
               unordered_map<string, double> costs;
               for (auto const& x : map) {
-                cout << x.first << "     (";
+                //cout << x.first << "     (";
                 costs[x.first] = x.second.cost(sensor_fusion);
-                cout << ") :: " << costs[x.first] << endl;
+                //cout << ") :: " << costs[x.first] << endl;
               }
               state = minCostState(costs);
-              cout << "Min cost State = " << state << endl;
+              //cout << "Min cost State = " << state << endl;
 
               selectedTrajectory = map[state];
             }
@@ -255,8 +249,6 @@ int main() {
               next_x_vals.push_back(xy[0]);
               next_y_vals.push_back(xy[1]);
             }
-
-            cout << "Sent " << next_x_vals.size() << " as Trajectory " << endl;
 
 
             json msgJson;
