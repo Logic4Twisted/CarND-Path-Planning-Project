@@ -17,7 +17,7 @@ const static double EFFICIENCY = 3.0E2;
 const static double LANE_CHANGE = 1.0E0;
 
 const static double SPEED_LIMIT = 50.0; // mi/h
-const static double SPEED_LIMIT_BUFFER = 2.0; // mi/h
+const static double SPEED_LIMIT_BUFFER = 2.5; // mi/h
 
 const static double DELTA_T = 0.1; // seconds
 

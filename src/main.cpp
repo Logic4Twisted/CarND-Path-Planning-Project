@@ -197,6 +197,12 @@ int main() {
             std::cout << "state = " << state << endl;
             std::cout << "current lane = " << currentLocation.car_lane << ", target lane = " << target_lane << (in_lane?" IN LANE ":" CHANGING LANE ") << endl; 
             
+            for (int i = 0; i < sensor_fusion.size(); i++) {
+              for (int j = 0; j < sensor_fusion[i].size(); j++) {
+                cout << sensor_fusion[i][j] << " ";
+              }
+              cout << endl;
+            }
             
             previous_car_speed = car_speed;
             previous_car_acceleration = diff_v;
@@ -220,12 +226,12 @@ int main() {
             }
 
             Trajectory selectedTrajectory;
-            if (in_lane) {
+            if (in_lane || previous.size() < 20) {
               unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 4.0);
             
               unordered_map<string, double> costs;
               for (auto const& x : map) {
-                cout << x.first << "(";
+                cout << x.first << "     (";
                 costs[x.first] = x.second.cost(sensor_fusion);
                 cout << ") :: " << costs[x.first] << endl;
               }
@@ -237,7 +243,6 @@ int main() {
             else {
               selectedTrajectory = Trajectory::reuseTrajectory(previous, currentLocation, highwayMap);
             }
-            
 
             selectedTrajectory.printToStdout();
 

@@ -92,6 +92,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     result += 1;
   }
   cout << endl;
+  int vehicle_id = -1;
   double min_distance = 1000.0;
   for (int i = 0; i < sensor_fusion.size(); i++) {
     double id = sensor_fusion[i][0];
@@ -126,9 +127,12 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
       }
     }
     //cout << " distance to this vehicle = " << curr_distance  << "(" << help_j << ")" << endl;
+    if (curr_distance < min_distance) {
+      vehicle_id = id;
+    }
     min_distance = min(min_distance, curr_distance);
   }
-  cout << "distance = " << min_distance << endl;
+  cout << "distance = " << min_distance << "   vehicle_id = " << vehicle_id << endl;
   if (min_distance < MIN_DISTANCE) {
     return 1.0;
   }
@@ -471,11 +475,17 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
   unordered_map<string, Trajectory> result;
 
   int count = 0;
-  while (!previous.empty() && current.car_s > previous.s[0]) {
+  while (!previous.empty() && (current.car_s > previous.s[0] || (!previous.empty() && (previous.s[0] - current.car_s) > (TRACK_LEN - 20.0)))) {
     count++;
     previous.pop_front();
   }
   cout << count << " poped from front" << endl;
+  if (count == 0) {
+    cout << "!!!!! ";
+    if (previous.empty()) cout << " Empty";
+    else cout << current.car_s << " " << previous.s[0] << " " << (previous.s[0] - current.car_s) << " <> " << (TRACK_LEN - 20.0) << endl;
+    cout << endl;
+  }
 
   vector<vector<double>> reuse_previous;
   while (!previous.s.empty() && reuse_previous.size() < 10) {
@@ -491,7 +501,6 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
     start_sv = reuse_previous.back()[1];
     start_sa = reuse_previous.back()[2];
   }
-  start_s = fmod(start_s, TRACK_LEN);
   vector<double> s_start = {start_s, start_sv, start_sa};
 
   double start_d = current.car_d;
@@ -505,16 +514,13 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
   vector<double> d_start = {start_d, start_dv, start_da};
 
 
-  vector<double> a1s = {-4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0};
+  vector<double> a1s = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
   vector<int> a2s = {0, 1, -1};
   for (int i = 0; i < a1s.size(); i++) {
     for (int j = 0; j < a2s.size(); j++) {
 
       Trajectory t;
       string identifier = "Tr_" + to_string(result.size());
-      cout << endl << "--> " << identifier << endl;
-
-
 
       // reuse some previous points
       for (int i = 0; i < reuse_previous.size(); i++) {
@@ -550,6 +556,8 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
         identifier += " CR";
       }
       t.target_lane = t.lane + t.lane_change;
+      cout << endl << "--> " << identifier << endl;
+
       if (t.target_lane < 0 || t.target_lane > 2) {
         continue;
       }
@@ -577,11 +585,18 @@ unordered_map<string, Trajectory> Trajectory::generate_random(Trajectory previou
 
   std::default_random_engine de(time(0));
   int count = 0;
-  while (!previous.empty() && current.car_s > previous.s[0]) {
+  while (!previous.empty() && (current.car_s > previous.s[0] || (previous.s[0] - current.car_s) > (TRACK_LEN - 20.0))) {
     count++;
     previous.pop_front();
   }
   cout << count << " poped from front" << endl;
+  if (count == 0) {
+    cout << "!!!!! ";
+    if (previous.empty()) cout << " Empty";
+    else cout << current.car_s << " " << previous.s[0];
+    cout << endl;
+    cout << (previous.s[0] - current.car_s) << " <> " << (TRACK_LEN - 20.0) << endl;
+  }
 
   vector<vector<double>> reuse_previous;
   while (!previous.s.empty() && reuse_previous.size() < 10) {
@@ -597,7 +612,6 @@ unordered_map<string, Trajectory> Trajectory::generate_random(Trajectory previou
     start_sv = reuse_previous.back()[1];
     start_sa = reuse_previous.back()[2];
   }
-  start_s = fmod(start_s, TRACK_LEN);
   vector<double> s_start = {start_s, start_sv, start_sa};
 
   double start_d = current.car_d;
@@ -748,7 +762,7 @@ void Trajectory::calculate_waypoints(vector<double> s_coeff, vector<double> d_co
   min_legal_distance = 6.0;
 
   for (double dt = 0.02; dt <= T; dt += 0.02) {
-    double s_ = eval(s_coeff, dt);
+    double s_ = fmod(eval(s_coeff, dt), TRACK_LEN);
     double sv_ = eval(s_v, dt);
     double sa_ = eval(s_a, dt);
     double sj_ = eval(s_j, dt);
