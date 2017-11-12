@@ -13,8 +13,8 @@ const static double PROJECT_GOAL = 1.0E6;
 const static double TRAFIC_LAWS = 1.0E5;
 const static double REACH_GOAL = 1.0E5;
 const static double COMFORT = 1.0E4;
-const static double EFFICIENCY = 1.0E3;
-const static double LANE_CHANGE = 4.0E1;
+const static double EFFICIENCY = 3.0E2;
+const static double LANE_CHANGE = 1.0E0;
 
 const static double SPEED_LIMIT = 50.0; // mi/h
 const static double SPEED_LIMIT_BUFFER = 2.0; // mi/h
@@ -24,8 +24,8 @@ const static double DELTA_T = 0.1; // seconds
 const static double MAX_JERK = 50.0;
 const static double MAX_ACCELERATION = 10.0;
 
-const static double MIN_DISTANCE = 7.0; // meters
-const static double RECOMMENDED_DISTANCE = 12.0; // meters
+const static double MIN_DISTANCE = 5.0; // meters
+const static double RECOMMENDED_DISTANCE = 10.0; // meters
 
 using namespace std;
 
@@ -45,6 +45,8 @@ class Trajectory
 
   double start_s;
   double start_d;
+  double start_v;
+
   double final_s;
   double final_d;
   double final_v;
@@ -60,6 +62,7 @@ class Trajectory
   double max_jerk_d;
   double max_acceleration_d;
   double max_velocity_d;
+  double min_legal_distance;
 
   double max_speed;
   
@@ -73,9 +76,11 @@ class Trajectory
   double inefficiency_cost() const;
   double overspeeding_cost() const;
   double change_lane_cost() const;
+  double cost_outside_lanes() const;
   static Trajectory create_CL_trajectory(CarLocation current, Target target, HighwayMap map, double T);
   static Trajectory create_trajectory(CarLocation current, Target target, HighwayMap map);
-  static unordered_map<string, Trajectory> generate(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T);
+  static unordered_map<string, Trajectory> generate_random(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T);
+  static unordered_map<string, Trajectory> generate(Trajectory previous, CarLocation current, HighwayMap map, double T);
   static Trajectory reuseTrajectory(Trajectory previous, CarLocation current, HighwayMap map);
   void printToStdout() const;
   vector<double> front();

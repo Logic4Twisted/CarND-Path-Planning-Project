@@ -45,8 +45,18 @@ double Trajectory::cost (vector<vector<double>> sensor_fusion) const {
   cost = change_lane_cost();
   cout << "CHANGE LANE COST = " << cost << endl;
   result += cost*LANE_CHANGE; 
+
+  cost = cost_outside_lanes();
+  cout << "DRIVING OUTSIDE LANES = " << cost << endl;
+  result += cost*TRAFIC_LAWS;
   
   return result;
+}
+
+double Trajectory::cost_outside_lanes() const {
+  if (min_legal_distance > 1.5) return 0.0;
+  if (min_legal_distance < 0.0) return 1.0;
+  return (1.5-min_legal_distance)/1.5;
 }
 
 double Trajectory::change_lane_cost() const{
@@ -92,7 +102,7 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     double vx = sensor_fusion[i][3];
     double vy = sensor_fusion[i][4];
     double v = sqrt(vx*vx + vy*vy);
-    int lane_ = (int)(d_/4.0);
+    int lane_ = (int)floor(d_/4.0);
     /*
     for (int j = 0; j < x.size(); j++) {
       double current_x = x_ + vx*j*0.02;
@@ -104,10 +114,10 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
     double curr_distance = 1000.0;
     int help_j = -1;
     for (int j = 0; j < s.size(); j++) {
-      int lane_j = (int)(d[j]/4.0);
+      int lane_j = (int)floor(d[j]/4.0);
       if (lane_ == lane_j || lane_ == lane || fabs(d[j] - d_) < 2.0) {
-        double dist = fabs(s[j] - (s_ + v*(j+1)*0.02));
-        //double dist = distance(s[j], d[j], (s_ + v*(j+1)*0.02), d_);
+        //double dist = fabs(s[j] - (s_ + v*(j+1)*0.02));
+        double dist = distance(s[j], d[j], (s_ + v*(j+1)*0.02), d_);
         if (curr_distance > dist) {
           //cout << "> s distance = " << dist << ", d distance = " << fabs(d[j] - d_) << " at " << ((j+1)*0.02) << " s " << endl; 
           help_j = j;
@@ -130,8 +140,9 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
 }
 
 double Trajectory::inefficiency_cost() const {
-  double target = miph_to_mps(SPEED_LIMIT-SPEED_LIMIT_BUFFER);
-  return fabs(target - avg_velocity_s)/target;
+  //double target = miph_to_mps(SPEED_LIMIT-SPEED_LIMIT_BUFFER);
+  double diff = avg_velocity_s - start_v;
+  return 1.0/(1.0 + exp(diff));
 }
 
 double Trajectory::overspeeding_cost() const {
@@ -456,7 +467,112 @@ Trajectory Trajectory::create_trajectory(CarLocation current, Target target, Hig
   return result;
 }
 
-unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T) {
+unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarLocation current, HighwayMap map, double T) {
+  unordered_map<string, Trajectory> result;
+
+  int count = 0;
+  while (!previous.empty() && current.car_s > previous.s[0]) {
+    count++;
+    previous.pop_front();
+  }
+  cout << count << " poped from front" << endl;
+
+  vector<vector<double>> reuse_previous;
+  while (!previous.s.empty() && reuse_previous.size() < 10) {
+    reuse_previous.push_back(previous.front());
+    previous.pop_front();
+  }
+
+  double start_s = current.car_s;
+  double start_sv = current.car_speed;
+  double start_sa = current.car_acceleration;
+  if (!reuse_previous.empty()) {
+    start_s = reuse_previous.back()[0];
+    start_sv = reuse_previous.back()[1];
+    start_sa = reuse_previous.back()[2];
+  }
+  start_s = fmod(start_s, TRACK_LEN);
+  vector<double> s_start = {start_s, start_sv, start_sa};
+
+  double start_d = current.car_d;
+  double start_dv = 0.0;
+  double start_da = 0.0;
+  if (!reuse_previous.empty()) {
+    start_d = reuse_previous.back()[3];
+    start_dv = reuse_previous.back()[4];
+    start_da = reuse_previous.back()[5];
+  }
+  vector<double> d_start = {start_d, start_dv, start_da};
+
+
+  vector<double> a1s = {-4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0};
+  vector<int> a2s = {0, 1, -1};
+  for (int i = 0; i < a1s.size(); i++) {
+    for (int j = 0; j < a2s.size(); j++) {
+
+      Trajectory t;
+      string identifier = "Tr_" + to_string(result.size());
+      cout << endl << "--> " << identifier << endl;
+
+
+
+      // reuse some previous points
+      for (int i = 0; i < reuse_previous.size(); i++) {
+        t.push_back(reuse_previous[i]);
+      }
+
+
+
+      // calculate s values
+      double a1 = a1s[i];
+      cout << "Random variable = " << a1 << endl;
+
+      double finish_a = start_sa + a1*T;
+      double finish_v = start_sv + start_sa*T + a1*T*T/2.0;
+      double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + a1*T*T*T/6.0;
+      if (finish_s <= start_s) {
+        cout << "Going backwards - abort this trajectory " << endl;
+        continue;
+      }
+      vector<double> s_final = {finish_s, finish_v, finish_a};
+      vector<double> s_coeff = jmt(s_start, s_final, T);
+
+
+
+      // calculate d values
+      int a2 = a2s[j];
+      t.lane = current.car_lane;
+      t.lane_change = a2;
+      if (t.lane_change == -1.0) {
+        identifier += " CL";
+      }
+      else if (t.lane_change == 1.0) {
+        identifier += " CR";
+      }
+      t.target_lane = t.lane + t.lane_change;
+      if (t.target_lane < 0 || t.target_lane > 2) {
+        continue;
+      }
+
+      double finish_d = 4.0*t.target_lane + 2.0;
+
+      cout << "start_d = " << start_d << " finish_d = " << finish_d << endl;
+      vector<double> d_final = {finish_d, 0.0, 0.0};
+      vector<double> d_coeff = jmt(d_start, d_final, T);
+
+
+      // calculate stuff for trajetories
+      t.calculate_waypoints(s_coeff, d_coeff, T);
+      t.calculateStats();
+
+      result[identifier] = t;
+    }
+  }
+
+  return result;
+}
+
+unordered_map<string, Trajectory> Trajectory::generate_random(Trajectory previous, CarLocation current, HighwayMap map, int N_to_generate, double T) {
   unordered_map<string, Trajectory> result;
 
   std::default_random_engine de(time(0));
@@ -495,7 +611,7 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
   vector<double> d_start = {start_d, start_dv, start_da};
 
   int try_counter = 0;
-  while (result.size() < N_to_generate && try_counter < 20) {
+  while (result.size() < N_to_generate && try_counter < 2*N_to_generate) {
     try_counter++;
 
     Trajectory t;
@@ -629,6 +745,8 @@ void Trajectory::calculate_waypoints(vector<double> s_coeff, vector<double> d_co
   max_acceleration_d = 0.0;
   max_velocity_d = 0.0;
 
+  min_legal_distance = 6.0;
+
   for (double dt = 0.02; dt <= T; dt += 0.02) {
     double s_ = eval(s_coeff, dt);
     double sv_ = eval(s_v, dt);
@@ -656,7 +774,12 @@ void Trajectory::calculate_waypoints(vector<double> s_coeff, vector<double> d_co
     max_velocity_d = max(fabs(max_velocity_d), dv_);
     max_acceleration_d = max(max_acceleration_d, da_);
     max_jerk_s = max(max_jerk_s, dj_);
+
+    min_legal_distance = min(min_legal_distance, min(12.0 - d_, d_));
   }
+
+  start_v = sv.front();
+  final_v = sv.back();
 }
 
 bool Trajectory::empty() {

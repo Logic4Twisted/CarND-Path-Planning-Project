@@ -221,7 +221,7 @@ int main() {
 
             Trajectory selectedTrajectory;
             if (in_lane) {
-              unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 20, 4.0);
+              unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 4.0);
             
               unordered_map<string, double> costs;
               for (auto const& x : map) {

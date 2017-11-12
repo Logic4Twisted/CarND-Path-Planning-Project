@@ -17,7 +17,7 @@ vector<double> HighwayMap::getXY(double s, double d) {
 	}
 	vector<int> wps;
 	wps.push_back((prev_wp - 1 + map_size)%map_size);
-	wps.push_back(prev_wp%map_size);
+	wps.push_back((prev_wp + map_size)%map_size);
 	wps.push_back((prev_wp+1)%map_size);
 	wps.push_back((prev_wp+2)%map_size);
 
@@ -31,8 +31,11 @@ vector<double> HighwayMap::getXY(double s, double d) {
 		ptsdy.push_back(waypoints_dy[wp]);
 
 		double wp_s = waypoints_s[wp];
-		if (i == 0 && wp == map_size - 1) wp_s -= TRACK_LEN;
-		if (i > 0 && ptss[i-1] > waypoints_s[wp]) wp_s += TRACK_LEN;
+		//if (i <= 1 && wp == map_size - 2) wp_s -= TRACK_LEN;
+		//if (i == 0 && wp == map_size - 1) wp_s -= TRACK_LEN;
+		//if (i > 0 && ptss[i-1] > waypoints_s[wp]) wp_s += TRACK_LEN;
+		if (i <= 1 && wp_s > s) wp_s -= TRACK_LEN;
+		if (i >= 2 && wp_s < s) wp_s += TRACK_LEN;
 		ptss.push_back(wp_s);
 	}
 	tk::spline spline_x_s;
