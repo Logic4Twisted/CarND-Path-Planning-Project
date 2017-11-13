@@ -199,12 +199,14 @@ int main() {
             std::cout << "current lane = " << currentLocation.car_lane << ", target lane = " << target_lane << (in_lane?" IN LANE ":" CHANGING LANE ") << endl; 
             */
 
+            /*
             for (int i = 0; i < sensor_fusion.size(); i++) {
               for (int j = 0; j < sensor_fusion[i].size(); j++) {
                 cout << sensor_fusion[i][j] << " ";
               }
               cout << endl;
             }
+            */
             
             previous_car_speed = car_speed;
             previous_car_acceleration = diff_v;
@@ -238,7 +240,7 @@ int main() {
               selectedTrajectory = Trajectory::reuseTrajectory(previous, currentLocation, highwayMap);
             }
 
-            selectedTrajectory.printToStdout();
+            //selectedTrajectory.printToStdout();
 
             target_lane = selectedTrajectory.getTargetLane();
 
@@ -252,7 +254,6 @@ int main() {
 
 
             json msgJson;
-          	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 

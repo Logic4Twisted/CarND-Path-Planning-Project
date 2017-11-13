@@ -86,7 +86,6 @@ double Trajectory::collision_cost(vector<vector<double>> sensor_fusion) const {
   if (lane < 0 or lane >= 3) {
     result += 1;
   }
-  cout << endl;
   int vehicle_id = -1;
   double min_distance = 1000.0;
   for (int i = 0; i < sensor_fusion.size(); i++) {
@@ -324,7 +323,7 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
       double finish_v = start_sv + start_sa*T + a1*T*T/2.0;
       double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + a1*T*T*T/6.0;
       if (finish_s <= start_s) {
-        cout << "Going backwards - abort this trajectory " << endl;
+        //cout << "Going backwards - abort this trajectory " << endl;
         continue;
       }
       vector<double> s_final = {finish_s, finish_v, finish_a};
@@ -405,7 +404,7 @@ unordered_map<string, Trajectory> Trajectory::generate_random(Trajectory previou
 
     Trajectory t;
     string identifier = "Tr_" + to_string(result.size());
-    cout << endl << "--> " << identifier << endl;
+    //cout << endl << "--> " << identifier << endl;
 
 
 
@@ -419,13 +418,13 @@ unordered_map<string, Trajectory> Trajectory::generate_random(Trajectory previou
     // calculate s values
     std::normal_distribution<> dist(0.0, 1.0);
     double a1 = dist(de);
-    cout << "Random variable = " << a1 << endl;
+    //cout << "Random variable = " << a1 << endl;
 
     double finish_a = start_sa + a1*T;
     double finish_v = start_sv + start_sa*T + a1*T*T/2.0;
     double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + a1*T*T*T/6.0;
     if (finish_s <= start_s) {
-      cout << "Going backwards - abort this trajectory " << endl;
+      //cout << "Going backwards - abort this trajectory " << endl;
       continue;
     }
     vector<double> s_final = {finish_s, finish_v, finish_a};
@@ -463,7 +462,7 @@ unordered_map<string, Trajectory> Trajectory::generate_random(Trajectory previou
 
     double finish_d = 4.0*t.target_lane + 2.0;
 
-    cout << "start_d = " << start_d << " finish_d = " << finish_d << endl;
+    //cout << "start_d = " << start_d << " finish_d = " << finish_d << endl;
     vector<double> d_final = {finish_d, 0.0, 0.0};
     vector<double> d_coeff = jmt(d_start, d_final, T);
 
