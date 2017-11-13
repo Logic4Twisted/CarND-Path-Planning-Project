@@ -7,7 +7,7 @@ To simplify my model I used Frenet coordinates for planing. getXY method provide
 
 Essentially, I am considering two states. Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or chaning lane if possible. Second state is when I am chaning lanes. In this state I am reusing previously calculated waypoints and not considering new information. Only exception is when trajectory runs out of waypoints before reaching targeted lane. In this case I am generating all the trajectories like in the previous state. Obviously, this is a shorcommig of a model but is realy simple, and it works well. This is the code in `main.cpp` that determines two states:
 
-```
+```c++
 if (in_lane || previous.size() < 20) { // "Normal" state - generate all trajectories 
   unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 4.0);
   unordered_map<string, double> costs;
@@ -26,9 +26,9 @@ else { // "Chaning lanes" state - resuse previously calculated trajectory
 I am using trajectories of 4.0 seconds duration. 
 Static method `Trajectory::generate` generates all trajectories. It resues first 10 waypoints of previously selected trajectory, if possile. This makes ride smoother. Then I am generating using `jmt` method to generate trajectories with linear change in acceleration. 
 
-```
+```c++
 vector<double> dif_acc = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
-  vector<int> dif_lane = {0, 1, -1};
+vector<int> dif_lane = {0, 1, -1};
 ```
 First vector is all considered changes in accelration (in seconds). This choice simplifies model decrising number of parametes to tune. Second vector is all considered changes in lanes. 
 Trajectories are generated using `jmt` function in helper_functions.cpp. This is polynomial of 5th degree calculated such that it matches position, velocity and acceleration in starting and ending poing of trajetory. The same fuction is used in lectures.
