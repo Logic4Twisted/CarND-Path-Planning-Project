@@ -35,11 +35,12 @@ Trajectories are generated using `jmt` function in helper_functions.cpp. This is
 Desired ening position is selected as :
 
 ```c++
-double a1 = dif_acc[i];
+// vector<double> s_start = {start_s, start_sv, start_sa}; <-- starting position
+double dif_a = dif_acc[i];
 
-double finish_a = start_sa + a1*T;
-double finish_v = start_sv + start_sa*T + a1*T*T/2.0;
-double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + a1*T*T*T/6.0;
+double finish_a = start_sa + dif_a*T;
+double finish_v = start_sv + start_sa*T + dif_a*T*T/2.0;
+double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + dif_a*T*T*T/6.0;
 ```
 
    
