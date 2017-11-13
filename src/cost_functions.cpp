@@ -301,10 +301,10 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
   vector<double> d_start = {start_d, start_dv, start_da};
 
 
-  vector<double> a1s = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
-  vector<int> a2s = {0, 1, -1};
-  for (int i = 0; i < a1s.size(); i++) {
-    for (int j = 0; j < a2s.size(); j++) {
+  vector<double> dif_acc = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
+  vector<int> dif_lane = {0, 1, -1};
+  for (int i = 0; i < dif_acc.size(); i++) {
+    for (int j = 0; j < dif_lane.size(); j++) {
 
       Trajectory t;
       string identifier = "Tr_" + to_string(result.size());
@@ -317,7 +317,7 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
 
 
       // calculate s values
-      double a1 = a1s[i];
+      double a1 = dif_acc[i];
 
       double finish_a = start_sa + a1*T;
       double finish_v = start_sv + start_sa*T + a1*T*T/2.0;
@@ -332,7 +332,7 @@ unordered_map<string, Trajectory> Trajectory::generate(Trajectory previous, CarL
 
 
       // calculate d values
-      int a2 = a2s[j];
+      int a2 = dif_lane[j];
       t.lane = current.car_lane;
       t.lane_change = a2;
       if (t.lane_change == -1.0) {
