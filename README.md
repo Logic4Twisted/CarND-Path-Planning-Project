@@ -1,5 +1,14 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
+
+### Model Documentation
+
+To simplify my model I used Frenet coordinates for planing. getXY method provided (by intructor video) was not accurate enough. Car did not drive smoothly and had suden jerks. Using spline function I implemented much more accurate calculation of xy given Frenet coordinates. Some inaccuracies are stil present when calculating positions in the righmost lane. This is because this lane is the farthest away from reference line. I created additional class HighwayMap to encompass all map related functionalities.
+
+That made possible planning trajectories in Frenet coordinates. Essentially, I am considering two states. Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or chaning lane if possible. To simplify model I am only cosidering only trajectories that have constant change in acceleration, keeping other trajectory parameters constant. 
+This can be 
+
+
    
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
