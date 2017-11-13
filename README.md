@@ -8,7 +8,7 @@ To simplify my model I used Frenet coordinates for planing. getXY method provide
 Essentially, I am considering two states. Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or chaning lane if possible. Second state is when I am chaning lanes. In this state I am reusing previously calculated waypoints and not considering new information. Only exception is when trajectory runs out of waypoints before reaching targeted lane. In this case I am generating all the trajectories like in the previous state. Obviously, this is a shorcommig of a model but is realy simple, and it works well. This is the code in `main.cpp` that determines two states:
 
 ```
-if (in_lane || previous.size() < 20) {
+if (in_lane || previous.size() < 20) { // "Normal" state - generate all trajectories 
   unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 4.0);
   unordered_map<string, double> costs;
   
@@ -19,16 +19,28 @@ if (in_lane || previous.size() < 20) {
 
   selectedTrajectory = map[state];
 }
-else {
+else { // "Chaning lanes" state - resuse previously calculated trajectory
   selectedTrajectory = Trajectory::reuseTrajectory(previous, currentLocation, highwayMap);
 }
 ```
-When generating trajectories I am using trajectories of 4.0 seconds. This seems good value when changing lanes. 
+I am using trajectories of 4.0 seconds duration. 
+Static method `Trajectory::generate` generates all trajectories. It resues first 10 waypoints of previously selected trajectory, if possile. This makes ride smoother. Then I am generating using `jmt` method to generate trajectories with linear change in acceleration. 
 
+```
+vector<double> dif_acc = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
+  vector<int> dif_lane = {0, 1, -1};
+```
+First vector is all considered changes in accelration (in seconds). This choice simplifies model decrising number of parametes to tune. Second vector is all considered changes in lanes. 
+Trajectories are generated using `jmt` function in helper_functions.cpp. This is polynomial of 5th degree calculated such that it matches position, velocity and acceleration in starting and ending poing of trajetory. The same fuction is used in lectures.
+Desired ening position is selected as :
 
-To simplify model I am only cosidering only trajectories that have constant change in acceleration, keeping other trajectory parameters constant. 
+```c++
+double a1 = dif_acc[i];
 
-
+double finish_a = start_sa + a1*T;
+double finish_v = start_sv + start_sa*T + a1*T*T/2.0;
+double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + a1*T*T*T/6.0;
+```
 
    
 ### Simulator.
