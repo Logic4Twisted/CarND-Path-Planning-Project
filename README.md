@@ -5,9 +5,9 @@ Self-Driving Car Engineer Nanodegree Program
 
 To simplify my model I used Frenet coordinates for planing. getXY method provided (by intructor video) was not accurate enough. Car did not drive smoothly and had suden jerks. Using spline function I implemented much more accurate calculation of xy given Frenet coordinates. Some inaccuracies are stil present when calculating positions in the righmost lane. This is because this lane is the farthest away from reference line. I created additional class HighwayMap to encompass all map related functionalities.
 
-That made possible planning trajectories in Frenet coordinates. Essentially, I am considering two states. Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or chaning lane if possible. Second state is when I am chaning lanes. In this state I am reusing previously calculated waypoints and not considering new information. Only exception is when trajectory runs out of waypoints before reaching targeted lane. In this case I am generating all the trajectories like in the previous state. Obviously, this is a shorcommig of a model but is realy simple, and it works well. This is the code that determines two states:
+Essentially, I am considering two states. Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or chaning lane if possible. Second state is when I am chaning lanes. In this state I am reusing previously calculated waypoints and not considering new information. Only exception is when trajectory runs out of waypoints before reaching targeted lane. In this case I am generating all the trajectories like in the previous state. Obviously, this is a shorcommig of a model but is realy simple, and it works well. This is the code in `main.cpp` that determines two states:
 
-'''
+```
 if (in_lane || previous.size() < 20) {
   unordered_map<string, Trajectory> map = Trajectory::generate(previous, currentLocation, highwayMap, 4.0);
   unordered_map<string, double> costs;
@@ -22,7 +22,8 @@ if (in_lane || previous.size() < 20) {
 else {
   selectedTrajectory = Trajectory::reuseTrajectory(previous, currentLocation, highwayMap);
 }
-'''
+```
+When generating trajectories I am using trajectories of 4.0 seconds. This seems good value when changing lanes. 
 
 
 To simplify model I am only cosidering only trajectories that have constant change in acceleration, keeping other trajectory parameters constant. 
