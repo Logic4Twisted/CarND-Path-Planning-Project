@@ -24,15 +24,13 @@ else { // "Chaning lanes" state - resuse previously calculated trajectory
 }
 ```
 I am using trajectories of 4.0 seconds duration. 
-Static method `Trajectory::generate` generates all trajectories. It resues first 10 waypoints of previously selected trajectory, if possile. This makes ride smoother. Then I am generating using `jmt` method to generate trajectories with linear change in acceleration. 
+Static method `Trajectory::generate` generates all trajectories. If possible, first 10 waypoints of previously selected trajectory are resued. This makes ride smoother. Then, I am using `jmt` method to generate trajectories with linear change in acceleration. 
 
 ```c++
 vector<double> dif_acc = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
 vector<int> dif_lane = {0, 1, -1};
 ```
-First vector contains all considered changes in acceleration (in seconds). This design choice simplifies model , by decrising number of parametes to tune. Second vector contains all considered changes in lanes. 
-
-![Figure 1](imgs/figure_1.png?raw=true "Changes in s coordinate for linear increase in acceleration of 0.3")
+In code snippet abowe first vector contains all considered changes in acceleration (in seconds). This design choice simplifies model , by decrising number of parametes to tune. Second vector contains all considered changes in lanes. 
 
 Trajectories are generated using `jmt` function in helper_functions.cpp. This is polynomial of 5th degree calculated such that it matches position, velocity and acceleration in starting and ending poing of trajetory. The same fuction is used in lectures.
 Desired ening position is selected as :
@@ -45,9 +43,53 @@ double finish_a = start_sa + dif_a*T;
 double finish_v = start_sv + start_sa*T + dif_a*T*T/2.0;
 double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + dif_a*T*T*T/6.0;
 ```
+Picture bellow depicts generated trajectry for linear chenge in acceleration of 0.3.
+![Figure 1](imgs/figure_1.png?raw=true "Changes in s coordinate for linear increase in acceleration of 0.3")
 
+Generated trajectories are compared to cost functions implemented in cost_functions.cpp. All cost functions are normalized to the range 0.0 - 1.0. This makes comparing them somewhat easier. These values are then multiplied with matching cost coefficient. 
+Functions are coeffiecients are given bellow
+```c++
+double Trajectory::cost (vector<vector<double>> sensor_fusion) const {
+  double result = 0.0;
 
-   
+  double cost = collision_cost(sensor_fusion);
+  result += cost*COLLISION;
+  
+  cost = inefficiency_cost();
+  result += cost*EFFICIENCY;
+  
+  cost = acceleration_cost();
+  result += cost*PROJECT_GOAL;
+  
+  cost = jerk_cost();
+  result += cost*PROJECT_GOAL;
+  
+  cost = overspeeding_cost();
+  result += cost*PROJECT_GOAL;
+
+  cost = comfort_cost();
+  result += cost*COMFORT;
+
+  cost = change_lane_cost();
+  result += cost*LANE_CHANGE; 
+
+  cost = cost_outside_lanes();
+  result += cost*TRAFIC_LAWS;
+  
+  return result;
+}
+```
+
+```c++
+const static double COLLISION = 1.0E6;
+const static double PROJECT_GOAL = 1.0E6;
+const static double TRAFIC_LAWS = 1.0E5;
+const static double REACH_GOAL = 1.0E5;
+const static double COMFORT = 1.0E4;
+const static double EFFICIENCY = 3.0E2;
+const static double LANE_CHANGE = 1.0E0;
+```
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
