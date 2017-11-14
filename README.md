@@ -3,10 +3,11 @@ Self-Driving Car Engineer Nanodegree Program
 
 ### Model Documentation
 
-To simplify my model I used Frenet coordinates for planing. Method getXY provided (by intructor video) was not accurate enough. Car did not drive smoothly and had sudden jerks. Using spline function more accurate calculation of xy coordinates given Frenet coordinates is possible. Some inaccuracies are stil present when calculating positions in the righmost lane. This is because this lane is the farthest away from reference line. I created additional class HighwayMap to encompass all map related functionalities.
+To simplify my model I used Frenet coordinates for planing. Method getXY provided (by instructor video) was not accurate enough. The car did not drive smoothly and had sudden jerks. Using spline function more accurate calculation of XY coordinates given Frenet coordinates is possible. Some inaccuracies are still present when calculating positions in the rightmost lane. This is because this lane is the farthest away from the reference line. I created additional class HighwayMap to encompass all map related functionalities.
 
 ##### States
-Essentially, model has two "states". Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or changing lane if possible. Second state is when I am changing lanes. In this state I am reusing previously calculated waypoints and not considering new information. Only exception is when trajectory runs out of waypoints before reaching targeted lane. In this case I am generating all the trajectories like in the normal state. Obviously, this is a shorcommig of a model but makes problem simpler, and it works well. This is the code in `main.cpp` that distinguishes two states:
+Essentially, the model has two "states". The normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or changing lane if possible. The second state is when I am changing lanes. In this state, I am reusing previously calculated waypoints and not considering new information. The only exception is when trajectory runs out of waypoints before reaching the targeted lane. In this case, I am generating all the trajectories like in the normal state. Obviously, this is a shortcoming of a model but makes the problem simpler, and it works well. This is the code in `main.cpp` that distinguishes two states:
+
 
 ```c++
 if (in_lane || previous.size() < 20) { // "Normal" state - generate all trajectories 
@@ -27,7 +28,7 @@ else { // "Chaning lanes" state - resuse previously calculated trajectory
 After trying different values for trajectory length, i am using trajectories of 4.0 seconds duration. 
 
 ##### Generating trajectories
-Static method `Trajectory::generate` generates all trajectories. If possible, first 10 waypoints of previously selected trajectory are resued. This makes ride smoother. I am using `jmt` method to generate trajectories with linear change in acceleration. 
+Static method `Trajectory::generate` generates all trajectories. If possible, first 10 waypoints of previously selected trajectory are reused. This makes the ride smoother. I am using `jmt` method to generate trajectories with a linear change in acceleration. 
 
 ```c++
 vector<double> dif_acc = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
@@ -35,7 +36,7 @@ vector<int> dif_lane = {0, 1, -1};
 ```
 In code snippet above first vector contains all considered changes in acceleration (in seconds). This design choice simplifies model, by decrising number of parametes to tune. Second vector contains all considered changes in lanes. 
 
-Trajectories are generated using `jmt` function in helper_functions.cpp. This is polynomial of 5th degree calculated such that it matches position, velocity and acceleration in starting and ending poing of trajetory. The same fuction is used in lectures.
+Trajectories are generated using `jmt` function in helper_functions.cpp. This is polynomial of 5th degree calculated such that it matches position, velocity and acceleration in starting and ending point of the trajectory. The same function is used in lectures.
 Desired ening position is selected as :
 
 ```c++
@@ -50,7 +51,7 @@ Picture bellow depicts generated trajectry for linear chenge in acceleration of 
 ![Figure 1](imgs/figure_1.png?raw=true "Changes in s coordinate for linear increase in acceleration of 0.3")
 
 ##### Cost functions
-Generated trajectories are compared according to cost functions implemented in cost_functions.cpp. All cost functions are normalized to the range 0.0 - 1.0. This makes comparing them somewhat easier. These values are then multiplied with matching cost coefficients. 
+Generated trajectories are compared according to cost functions implemented in cost_functions.cpp. All cost functions are normalized to the range 0.0 - 1.0. This makes comparing them somewhat easier. These values are then multiplied by matching cost coefficients. 
 Functions are coeffiecients are given bellow
 ```c++
 double Trajectory::cost (vector<vector<double>> sensor_fusion) const {
@@ -97,12 +98,12 @@ Tunning these and parameters related with collision were realy time consuming.
 
 ##### Shortcomings of the model
 
-Implemented model does not estimate xy coordinates in rightmost lane given Frenet coordinates accurately enough. Consencence is, that sometimes the car exceedes the speed limit or moves outside right line. I countered this behaviour by introducing speed limit buffer of 2.5 mi/h, but this also decreses overall car speed. To move car toward center of the lane I introduced `cost_outside_lanes` cost fuction that penalizes trajectories that are closer to the edge of the road. 
-Another problem area is when changing lanes. If some new information is obtained during this period (of about 3 seconds) my model does take them into account. This can be real problem in realistic situations but not in this simulation environment.
+The implemented model does not estimate XY coordinates in rightmost lane given Frenet coordinates accurately enough. The consequence is, that sometimes the car exceeds the speed limit or moves outside right line. I countered this behavior by introducing speed limit buffer of 2.5 mi/h, but this also decreases overall car speed. To move car toward the center of the lane I introduced `cost_outside_lanes` cost function that penalizes trajectories that are closer to the edge of the road. 
+Another problem area is when changing lanes. If some new information is obtained during this period (of about 3 seconds) my model does take them into account. This can be a real problem in realistic situations but not in this simulation environment.
 
-Aslo, in my model, other vehicles are treated as they would never change lanes. Change lane behaviour shoud be detected by countinously observing position and velocity of cars. This would mean more accurate implementation of getFrenet function.
+Also, in my model, other vehicles are treated as they would never change lanes. Change lane behavior should be detected by continuously observing position and velocity of cars. This would mean more accurate implementation of getFrenet function.
 
-Futher work should eliminate these shortcommings.
+Further work should eliminate these shortcomings.
 
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
