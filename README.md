@@ -3,8 +3,9 @@ Self-Driving Car Engineer Nanodegree Program
 
 ### Model Documentation
 
-To simplify my model I used Frenet coordinates for planing. getXY method provided (by intructor video) was not accurate enough. Car did not drive smoothly and had suden jerks. Using spline function I implemented much more accurate calculation of xy given Frenet coordinates. Some inaccuracies are stil present when calculating positions in the righmost lane. This is because this lane is the farthest away from reference line. I created additional class HighwayMap to encompass all map related functionalities.
+To simplify my model I used Frenet coordinates for planing. Method getXY provided (by intructor video) was not accurate enough. Car did not drive smoothly and had sudden jerks. Using spline function I implemented much more accurate calculation of xy coordinates given Frenet coordinates. Some inaccuracies are stil present when calculating positions in the righmost lane. This is because this lane is the farthest away from reference line. I created additional class HighwayMap to encompass all map related functionalities.
 
+##### States
 Essentially, I am considering two states. Normal state is when I am considering all possible trajectories. That is, I am considering staying in the lane, or chaning lane if possible. Second state is when I am chaning lanes. In this state I am reusing previously calculated waypoints and not considering new information. Only exception is when trajectory runs out of waypoints before reaching targeted lane. In this case I am generating all the trajectories like in the previous state. Obviously, this is a shorcommig of a model but is realy simple, and it works well. This is the code in `main.cpp` that determines two states:
 
 ```c++
@@ -24,6 +25,8 @@ else { // "Chaning lanes" state - resuse previously calculated trajectory
 }
 ```
 I am using trajectories of 4.0 seconds duration. 
+
+##### Generating trajectories
 Static method `Trajectory::generate` generates all trajectories. If possible, first 10 waypoints of previously selected trajectory are resued. This makes ride smoother. Then, I am using `jmt` method to generate trajectories with linear change in acceleration. 
 
 ```c++
@@ -46,6 +49,7 @@ double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + dif_a*T*T*T/6.0;
 Picture bellow depicts generated trajectry for linear chenge in acceleration of 0.3.
 ![Figure 1](imgs/figure_1.png?raw=true "Changes in s coordinate for linear increase in acceleration of 0.3")
 
+##### Cost functions
 Generated trajectories are compared to cost functions implemented in cost_functions.cpp. All cost functions are normalized to the range 0.0 - 1.0. This makes comparing them somewhat easier. These values are then multiplied with matching cost coefficient. 
 Functions are coeffiecients are given bellow
 ```c++
@@ -89,6 +93,15 @@ const static double COMFORT = 1.0E4;
 const static double EFFICIENCY = 3.0E2;
 const static double LANE_CHANGE = 1.0E0;
 ```
+Tunning these and parameters related with collision cost were time consuming. 
+
+##### Shortcommings of the model
+
+Implemented model does not estimate xy coordinates in rightmost lane accurately enough. Consencence is, that sometimes the car exceedes the speed limit or moves outside right line. I countered this behaviour by introducing speed limit buffer of 2.5 mi/h, but this also decreses overall car speed. To move car toward center of the lanes I introduced cost_outside_lanes cost fuction that penalizes trajectories that are closer to edge of the road. 
+Another problem area is changing lane state. If some new information is obtained during changing lanes my model does take them into account. This can be real problem in realistic situations but not in this simulation environment.
+Aslo, in my model other vehicles are treated as they would never change lanes. Change lane behaviour shoud be detected by countinously observing position and velocity of cars and obeserving changes in d Frenet coordinate. This would mean more accurate implementation of getFrenet function.
+
+Futher work should eliminate these shortcommings.
 
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
