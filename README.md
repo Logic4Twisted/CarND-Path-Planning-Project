@@ -30,7 +30,10 @@ Static method `Trajectory::generate` generates all trajectories. It resues first
 vector<double> dif_acc = {-6.0, -4.0, -3.0, -2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0};
 vector<int> dif_lane = {0, 1, -1};
 ```
-First vector is all considered changes in accelration (in seconds). This choice simplifies model decrising number of parametes to tune. Second vector is all considered changes in lanes. 
+First vector contains all considered changes in acceleration (in seconds). This design choice simplifies model , by decrising number of parametes to tune. Second vector contains all considered changes in lanes. 
+
+![Figure 1](imgs/figure_1.png?raw=true "Changes in s coordinate for linear increase in acceleration of 0.3")
+
 Trajectories are generated using `jmt` function in helper_functions.cpp. This is polynomial of 5th degree calculated such that it matches position, velocity and acceleration in starting and ending poing of trajetory. The same fuction is used in lectures.
 Desired ening position is selected as :
 
@@ -42,6 +45,7 @@ double finish_a = start_sa + dif_a*T;
 double finish_v = start_sv + start_sa*T + dif_a*T*T/2.0;
 double finish_s = start_s + start_sv*T + start_sa*T*T/2.0 + dif_a*T*T*T/6.0;
 ```
+
 
    
 ### Simulator.
