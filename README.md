@@ -95,10 +95,12 @@ const static double LANE_CHANGE = 1.0E0;
 ```
 Tunning these and parameters related with collision cost were time consuming. 
 
-##### Shortcommings of the model
+##### Shortcomings of the model
 
 Implemented model does not estimate xy coordinates in rightmost lane accurately enough. Consencence is, that sometimes the car exceedes the speed limit or moves outside right line. I countered this behaviour by introducing speed limit buffer of 2.5 mi/h, but this also decreses overall car speed. To move car toward center of the lanes I introduced cost_outside_lanes cost fuction that penalizes trajectories that are closer to edge of the road. 
+
 Another problem area is changing lane state. If some new information is obtained during changing lanes my model does take them into account. This can be real problem in realistic situations but not in this simulation environment.
+
 Aslo, in my model other vehicles are treated as they would never change lanes. Change lane behaviour shoud be detected by countinously observing position and velocity of cars and obeserving changes in d Frenet coordinate. This would mean more accurate implementation of getFrenet function.
 
 Futher work should eliminate these shortcommings.
